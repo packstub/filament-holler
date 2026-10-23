@@ -8,7 +8,7 @@
 - Voice fallback when there is no camera; a voice-only mode per panel.
 - `canCall()` to decide who may call whom; `CallStarted`, `CallAnswered`, `CallEnded` events and a `calls` table with durations for a call log.
 - STUN out of the box, your own TURN server through four env variables for networks where a direct path fails (the relay only forwards encrypted packets).
-- The browser side is [`@packstub/calls`](js/), a framework-agnostic ES module with a pluggable signaling adapter, so the same engine works outside Filament.
+- Built on [Calls for Laravel](https://github.com/packstub/calls) (the signaling backend, installed with this package) and [`@packstub/calls`](https://github.com/packstub/calls-js) (the browser engine, bundled). Both work without Filament too.
 
 ## Requirements
 
@@ -38,7 +38,7 @@ public function panel(Panel $panel): Panel
 }
 ```
 
-That adds the widget to every page of the panel and six JSON routes under `/{panel}/filament-calls/`, behind the panel's auth middleware.
+That adds the widget to every page of the panel and the signaling routes under `/{panel}/filament-calls/calls/`, behind the panel's auth middleware. The tables, model, events and config file come from `packstub/calls`, which Composer installs alongside.
 
 ## Usage
 
@@ -105,10 +105,10 @@ When one side stays away longer than `reconnect_timeout` (15 s by default) the c
 Most calls connect directly with a STUN server, which is what the default config uses. Calls behind strict NATs, VPNs or corporate firewalls need a TURN relay; point the plugin at yours (coturn, or a hosted service):
 
 ```dotenv
-FILAMENT_CALLS_STUN_URL=stun:stun.l.google.com:19302
-FILAMENT_CALLS_TURN_URL=turn:turn.example.com:3478
-FILAMENT_CALLS_TURN_USERNAME=...
-FILAMENT_CALLS_TURN_CREDENTIAL=...
+CALLS_STUN_URL=stun:stun.l.google.com:19302
+CALLS_TURN_URL=turn:turn.example.com:3478
+CALLS_TURN_USERNAME=...
+CALLS_TURN_CREDENTIAL=...
 ```
 
 Or per panel, for example with short-lived TURN credentials:
@@ -123,7 +123,7 @@ A TURN relay forwards packets it cannot decrypt (WebRTC media is DTLS-SRTP end t
 
 ### Polling
 
-Every open panel tab asks the server for incoming calls every 5 seconds and, during a call, for signals every second; that poll is also the heartbeat that tells the other side you are still there. Tune it in `config/filament-calls.php` (`FILAMENT_CALLS_POLL_IDLE`, `FILAMENT_CALLS_POLL_ACTIVE`, in milliseconds), `FILAMENT_CALLS_RING_TIMEOUT` (seconds before a call is marked missed, default 45) and `FILAMENT_CALLS_RECONNECT_TIMEOUT` (seconds a side may be away before the call ends as lost, default 15).
+Every open panel tab asks the server for incoming calls every 5 seconds and, during a call, for signals every second; that poll is also the heartbeat that tells the other side you are still there. Tune it in `config/packstub-calls.php` (`CALLS_POLL_IDLE`, `CALLS_POLL_ACTIVE`, in milliseconds), `CALLS_RING_TIMEOUT` (seconds before a call is marked missed, default 45) and `CALLS_RECONNECT_TIMEOUT` (seconds a side may be away before the call ends as lost, default 15).
 
 ### Events and the call log
 
@@ -140,21 +140,9 @@ Event::listen(CallEnded::class, function (CallEnded $event) {
 
 `Packstub\Calls\Models\Call` is a plain Eloquent model over the `calls` table, ready for a resource of your own.
 
-## The browser engine
+## Outside Filament
 
-`js/` holds `@packstub/calls`: a `CallClient` (media, `RTCPeerConnection`, perfect negotiation, screen share by track replacement, reconnecting after a page load) that talks to any backend through a small signaling interface, plus `HttpSignaling`, the polling adapter this plugin uses. The Filament widget is a thin Alpine component over it. To use the engine elsewhere, implement the endpoints below (any language) and hand the client an adapter:
-
-| Method | Route | Does |
-| --- | --- | --- |
-| `POST` | `calls` `{callee, tab}` | ring a user; 422 when not allowed, 409 when they are on a call |
-| `POST` | `calls/{id}/answer` `{tab}` | callee joins; the call becomes `active` |
-| `POST` | `calls/{id}/decline` | callee says no |
-| `POST` | `calls/{id}/hangup` | either side ends it |
-| `POST` | `calls/{id}/signals` `{type, payload}` | queue an `offer`, `answer`, `ice` or `reset` for the other side |
-| `POST` | `calls/{id}/leave` `{tab}` | a beacon as the window unloads: the side is free for the next page |
-| `GET` | `poll?after={cursor}&call={id}&tab={tab}&hold=1` | the call I am in (held by this window when `hold` is set: its heartbeat), an incoming call, and my new signals |
-
-Every window has a random `tab` id; a side belongs to one window at a time, and a window that stops polling for 5 s loses it. A fresh page claims the side, sends `reset` and a new offer, and the other side builds a new connection for it.
+The panel is a thin layer. [`packstub/calls`](https://github.com/packstub/calls) is the server side on its own (`Calls::routes()`, the `Calls` service, a `CallContext` for who is who and who may call whom) and [`@packstub/calls`](https://github.com/packstub/calls-js) the browser engine (`CallClient`, `HttpSignaling`), for a Laravel app without Filament or another backend speaking the same seven endpoints. This plugin binds a `PanelContext` that answers from the current panel (its guard, `getUserName()` / `getUserAvatarUrl()`, the plugin's `canCall()`, `iceServers()` and `video()`), registers the routes under the panel, and ships the widget, the `CallAction` and the pop-out window.
 
 ## Testing
 
