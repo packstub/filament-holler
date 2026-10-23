@@ -2,7 +2,7 @@
 
 Free (MIT) Filament v4/v5 plugin: 1-on-1 audio/video/screen-share calls between panel users, peer to peer over
 WebRTC. Laravel only does signaling (who calls whom; offer, answer and ICE candidates relayed through a table)
-over polled HTTP, no websockets. MVP as of 2026-10-23: untagged, repo not yet pushed.
+over polled HTTP, no websockets. MVP as of 2026-10-23: private repo `packstub/filament-calls`, untagged.
 
 ## Commands
 
