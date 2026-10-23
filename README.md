@@ -3,7 +3,7 @@
 1-on-1 audio, video and screen-share calls inside a Filament panel, peer to peer over WebRTC. The media goes straight from one browser to the other; your Laravel app only handles who calls whom and passes the few signaling messages the browsers need to find each other. Polling over plain HTTP, so there is no websocket server to run.
 
 - A `CallAction` for any record that is a user: a table row, a page header, an infolist.
-- A call widget on every page of the panel: an incoming-call toast with Accept and Decline, then a floating window with the other person's video, yours in a corner, mute, camera off, screen share and hang up.
+- A call widget on every page of the panel: an incoming-call toast with Accept and Decline, then a floating window with the other person's video, yours in a corner, mute, camera off, screen share and hang up. The other side sees when you mute, turn the camera off or share your screen.
 - The call follows the person around the panel: in its own small pop-out window (the main tab can go anywhere, reload or close), or in the page itself in SPA mode. A full page load mid-call reconnects within a few seconds instead of dropping it.
 - Voice fallback when there is no camera; a voice-only mode per panel.
 - `canCall()` to decide who may call whom; `CallStarted`, `CallAnswered`, `CallEnded` events and a `calls` table with durations for a call log.
@@ -86,7 +86,7 @@ Calls then start with the microphone only. Either side can still share the scree
 
 A browser tears down a WebRTC connection on every full page load, so the plugin keeps the call somewhere a page load cannot reach:
 
-- **Pop-out window** (default for panels without SPA mode): Call and Accept open the call in a small browser window of its own. The main tab shows a chip with the other person's name and the timer, a button to bring the window back and one to hang up, and is free to navigate, reload or close. Reloading the pop-out itself reconnects the call.
+- **Pop-out window** (default for panels without SPA mode): Call and Accept open the call in a small browser window of its own. The main tab shows a chip with the other person's name and the timer, a button to bring the window back and one to hang up, and is free to navigate, reload or close. Reloading the pop-out itself reconnects the call; closing it hands the call back to the main tab, which continues it in the page. If the browser blocks the pop-out, the call opens in the page instead, with a short notice.
 - **In the page** (default in SPA mode, `->spa()`): the widget is kept across `wire:navigate` page changes, so the call simply continues. A full page load (F5, a link outside the panel) reconnects it: the other side sees "Reconnecting…" for a few seconds, then the video is back.
 
 Pick explicitly when the default is not what you want:

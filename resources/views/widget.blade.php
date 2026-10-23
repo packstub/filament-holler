@@ -99,8 +99,8 @@
         </div>
 
         <div class="fi-calls-stage">
-            <video x-ref="remote" autoplay playsinline class="fi-calls-remote" :class="{ 'fi-calls-hidden': ! remoteVideo }"></video>
-            <div class="fi-calls-placeholder" x-show="! remoteVideo">
+            <video x-ref="remote" autoplay playsinline class="fi-calls-remote" :class="{ 'fi-calls-hidden': ! showRemote }"></video>
+            <div class="fi-calls-placeholder" x-show="! showRemote">
                 <template x-if="call?.peer?.avatar">
                     <img class="fi-calls-avatar fi-calls-avatar-lg" :src="call.peer.avatar" alt="">
                 </template>
@@ -109,6 +109,22 @@
                 </template>
             </div>
             <video x-ref="local" autoplay playsinline muted class="fi-calls-local" :class="{ 'fi-calls-mirror': ! sharing, 'fi-calls-hidden': cameraOff && ! sharing }"></video>
+
+            {{-- What the other side told us: muted, camera off, sharing --}}
+            <div class="fi-calls-badges">
+                <span class="fi-calls-badge" x-show="peerMuted" x-cloak data-peer="muted">
+                    <x-filament::icon icon="heroicon-m-speaker-x-mark" class="fi-calls-badge-icon" />
+                    {{ __('filament-calls::calls.peer_muted') }}
+                </span>
+                <span class="fi-calls-badge" x-show="peerSharing" x-cloak data-peer="sharing">
+                    <x-filament::icon icon="heroicon-m-computer-desktop" class="fi-calls-badge-icon" />
+                    {{ __('filament-calls::calls.peer_sharing') }}
+                </span>
+                <span class="fi-calls-badge" x-show="peerCameraOff && ! peerSharing" x-cloak data-peer="camera-off">
+                    <x-filament::icon icon="heroicon-m-video-camera-slash" class="fi-calls-badge-icon" />
+                    {{ __('filament-calls::calls.peer_camera_off') }}
+                </span>
+            </div>
         </div>
 
         <div class="fi-calls-controls">

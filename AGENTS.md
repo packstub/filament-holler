@@ -17,6 +17,9 @@ composer lint               # Pint
 composer build:js           # npm run build:js: copies node_modules/@packstub/calls/src/index.js to resources/dist/calls-core.js
                             # (npm install first; the dev dependency points at github:packstub/calls-js; dist is committed)
 composer serve              # workbench panel: Team page with Call buttons; ion@/ana@/mihai@example.com, password "password"
+composer test:e2e           # Playwright: two people call each other through the workbench panel (tests/e2e/calls.spec.js);
+                            # starts the server itself on port 8787 (CALLS_E2E_PORT), headless Chromium with a fake camera
+                            # and microphone; `npx playwright install chromium` once
 ```
 
 To try a call on one machine, sign in as two people on two hostnames (`localhost:8000` and `127.0.0.1:8000`):
@@ -32,7 +35,11 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
 - `resources/dist/calls-core.js`: a copy of `@packstub/calls` (`plugins/calls-js`, where the engine's own tests live). Never edit it here.
 - `resources/dist/calls.js`: the Alpine component (`packstubCalls`), imports `../calls-core.js` relative to its
   published URL (Alpine components land in `components/`; the core is a `Js` asset `loadedOnRequest()` so it is published but not put in `<head>`).
-  Draws state, plays the ring, attaches streams to the two `<video>` refs. `resources/dist/calls.css`: the widget.
+  Draws state, plays the ring, attaches streams to the two `<video>` refs, shows the other side's mute, camera-off and
+  screen-share badges (`peerstate`, `data-peer="…"`). When `window.open` returns null (pop-ups blocked) the call stays
+  on the page with a notice. `watchWindow()`: a main tab in `elsewhere` whose call nobody holds any more takes it
+  back (`client.takeOver()`, which looks at the server first) at once when it knows its pop-out closed, else after
+  `TAKE_BACK_DELAY` (3 s, so a reloading pop-out keeps its side). `resources/dist/calls.css`: the widget.
 - `resources/views/widget.blade.php`: rendered by the plugin's `BODY_END` render hook inside `@persist`; passes
   routes (`__ID__` placeholder for the call id), CSRF token, ICE servers, poll intervals and labels to Alpine.
 - `src/FilamentCallsPlugin.php`: `canCall()`, `iceServers()`, `video()`, `popOut()` (null = pop out unless the
@@ -54,7 +61,11 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
   `calls::messages.*`. `workbench/`, `testbench.yaml` (registers both providers, the core's first).
 - Tests: `WidgetTest`, `WindowTest` (pop-out, `popOut()`), `PanelRoutesTest` (the core routes under the panel,
   `canCall()` on the server, auth, CRLF through the panel route), `PanelContextTest`. The signaling logic
-  itself is tested in `packstub/calls`; run that suite too after a change there.
+  itself is tested in `packstub/calls`; run that suite too after a change there. `tests/e2e/calls.spec.js`
+  (Playwright, `composer test:e2e`) is the only test that runs the real thing: two browser contexts, the pop-outs,
+  WebRTC over loopback, a reload mid-call, mute and screen share seen by the other side, the main tab taking the
+  call back when its pop-out closes, and the page itself when `window.open` is blocked. Run it after a change in
+  any of the three repos; the e2e job in `tests.yml` runs it too.
 
 ## Conventions
 
@@ -69,6 +80,5 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
 ## Not in the MVP (ideas)
 
 Broadcast signaling adapter (Reverb/Echo) next to polling; a guest link for people outside the panel; a Calls
-resource/relation manager for the log; a Co-Edit "call this person" hook; the main tab taking a call back
-inline when its pop-out is closed (today the other side waits out `reconnect_timeout`); Document
-Picture-in-Picture for the pop-out where supported.
+resource/relation manager for the log; a Co-Edit "call this person" hook; Document Picture-in-Picture for the
+pop-out where supported.

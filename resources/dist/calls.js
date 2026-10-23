@@ -14,6 +14,9 @@ import { CallClient, HttpSignaling } from '../calls-core.js'
 
 const ACTIVE_STATES = ['calling', 'connecting', 'active', 'reconnecting']
 
+// A pop-out that stopped holding the call for this long is gone, not reloading: the main tab takes the call back.
+const TAKE_BACK_DELAY = 3000
+
 // A ring (two short beeps) for the callee, a ringback (one long tone) for the caller.
 function ringer() {
     let context = null
@@ -56,6 +59,7 @@ export default function packstubCalls(config) {
     let client = null
     let clock = null
     let popup = null
+    let takeBackTimer = null
     const ring = ringer()
 
     const windowUrl = (params) => config.windowUrl.replace('__ID__', encodeURIComponent(params.call ?? '')).replace('__USER__', encodeURIComponent(params.callee ?? ''))
@@ -67,6 +71,10 @@ export default function packstubCalls(config) {
         cameraOff: false,
         sharing: false,
         remoteVideo: false,
+        // What the other side told us about itself.
+        peerMuted: false,
+        peerCameraOff: false,
+        peerSharing: false,
         seconds: 0,
         notice: null,
         popup: Boolean(config.popup),
@@ -107,16 +115,27 @@ export default function packstubCalls(config) {
             })
 
             client.addEventListener('incoming', ({ detail: { call } }) => { this.call = call })
-            client.addEventListener('update', ({ detail: { call } }) => { this.call = call })
+            client.addEventListener('update', ({ detail: { call } }) => {
+                this.call = call
+                this.watchWindow()
+            })
             client.addEventListener('localstream', ({ detail: { stream } }) => this.attach(this.$refs.local, stream))
             client.addEventListener('remotestream', ({ detail: { stream } }) => {
                 this.attach(this.$refs.remote, stream)
                 this.remoteVideo = stream.getVideoTracks().length > 0
             })
+            client.addEventListener('peerstate', ({ detail: { muted, cameraOff, sharing } }) => {
+                this.peerMuted = muted
+                this.peerCameraOff = cameraOff
+                this.peerSharing = sharing
+            })
 
             client.addEventListener('ended', ({ detail: { reason } }) => {
                 this.remoteVideo = false
                 this.sharing = false
+                this.peerMuted = this.peerCameraOff = this.peerSharing = false
+                clearTimeout(takeBackTimer)
+                takeBackTimer = null
                 this.show(config.labels[`ended_${reason}`] || config.labels.ended_hung_up)
 
                 if (this.popup) setTimeout(() => window.close(), 1500)
@@ -150,6 +169,7 @@ export default function packstubCalls(config) {
             window.removeEventListener('filament-calls-call', this.onCall)
             window.removeEventListener('pagehide', this.onLeave)
             this.stopClock()
+            clearTimeout(takeBackTimer)
             ring.stop()
             client?.stop()
         },
@@ -157,20 +177,19 @@ export default function packstubCalls(config) {
         start(user) {
             if (! user) return
 
-            if (this.popOut) {
-                this.openWindow({ callee: user })
-                return
-            }
+            // The pop-out, or the page itself when the browser blocks the window.
+            if (this.popOut && this.openWindow({ callee: user })) return
+            if (this.popOut) this.show(config.labels.popup_blocked)
 
             client.callUser(String(user)).catch(() => {})
         },
 
         accept() {
-            if (this.popOut) {
-                this.openWindow({ call: this.call.id })
+            if (this.popOut && this.openWindow({ call: this.call.id })) {
                 client.handOff()
                 return
             }
+            if (this.popOut) this.show(config.labels.popup_blocked)
 
             client.accept().catch(() => {})
         },
@@ -178,15 +197,56 @@ export default function packstubCalls(config) {
         decline() { client.decline() },
         hangUp() { client.hangUp() },
 
+        /** Open the pop-out; false when the browser blocked it (then the call stays on this page). */
         openWindow(params) {
             popup = window.open(windowUrl(params), 'filament-calls', 'popup=yes,width=460,height=620')
             popup?.focus()
+
+            return popup !== null
         },
 
-        /** Bring the pop-out back; open it again if it was closed. */
+        /** Bring the pop-out back; open it again if it was closed, or continue the call here when that is blocked. */
         focusWindow() {
             if (popup && ! popup.closed) popup.focus()
-            else if (this.call) this.openWindow({ call: this.call.id })
+            else if (this.call && ! this.openWindow({ call: this.call.id })) this.takeBack()
+        },
+
+        /**
+         * The pop-out let go of the call (closed, or never claimed it): after a moment, the call
+         * continues on this page. A pop-out that is only reloading claims its side back within
+         * that moment; a closed one is taken back at once.
+         */
+        watchWindow() {
+            const orphaned = this.popOut && this.state === 'elsewhere' && this.call && ! this.call.held && this.call.status !== 'ended'
+
+            if (! orphaned) {
+                clearTimeout(takeBackTimer)
+                takeBackTimer = null
+                return
+            }
+
+            if (popup?.closed) {
+                this.takeBack()
+                return
+            }
+
+            takeBackTimer ??= setTimeout(() => {
+                takeBackTimer = null
+                this.takeBack()
+            }, TAKE_BACK_DELAY)
+        },
+
+        async takeBack() {
+            clearTimeout(takeBackTimer)
+            takeBackTimer = null
+            if (this.takingBack) return
+
+            this.takingBack = true
+            try {
+                if (await client.takeOver()) this.show(config.labels.window_closed_continuing)
+            } finally {
+                this.takingBack = false
+            }
         },
 
         toggleMute() {
@@ -236,6 +296,11 @@ export default function packstubCalls(config) {
 
         get inCall() {
             return ACTIVE_STATES.includes(this.state)
+        },
+
+        /** The other side's video is worth showing: there is one, and it is not a camera they turned off. */
+        get showRemote() {
+            return this.remoteVideo && (! this.peerCameraOff || this.peerSharing)
         },
 
         get elapsed() {

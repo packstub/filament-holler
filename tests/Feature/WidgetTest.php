@@ -19,7 +19,12 @@ it('renders the call widget on every panel page with the panel routes and ICE se
         ->assertSee('turn:turn.example.com')
         ->assertSee($js(url('/admin/filament-calls/calls/poll')), escape: false)
         ->assertSee($js(url('/admin/filament-calls/calls/__ID__/answer')), escape: false)
-        ->assertSee('x-persist="filament-calls"', escape: false);
+        ->assertSee('x-persist="filament-calls"', escape: false)
+        ->assertSee('data-peer="muted"', escape: false)
+        ->assertSee('data-peer="sharing"', escape: false)
+        ->assertSee('data-peer="camera-off"', escape: false)
+        ->assertSee('Pop-ups are blocked here')
+        ->assertSee('the call continues here');
 
     FilamentCallsPlugin::get()->iceServers(null);
 });
