@@ -24,6 +24,7 @@ providers:
   - Filament\Widgets\WidgetsServiceProvider
   - Livewire\LivewireServiceProvider
   - Packstub\Calls\CallsServiceProvider
+  - Packstub\Calls\FilamentCallsServiceProvider
   - Workbench\App\Providers\AdminPanelProvider
 
 seeders:

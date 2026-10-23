@@ -10,7 +10,7 @@ use Filament\Support\Concerns\EvaluatesClosures;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Route;
-use Packstub\Calls\Http\CallsController;
+use Packstub\Calls\Facades\Calls;
 use Packstub\Calls\Http\WindowController;
 
 class FilamentCallsPlugin implements Plugin
@@ -106,28 +106,21 @@ class FilamentCallsPlugin implements Plugin
     /** @return array<int, array<string, mixed>> */
     public function getIceServers(): array
     {
-        return $this->evaluate($this->iceServers) ?? config('filament-calls.ice_servers', []);
+        return $this->evaluate($this->iceServers) ?? config('packstub-calls.ice_servers', []);
     }
 
     public function hasVideo(): bool
     {
-        return (bool) $this->evaluate($this->video) && config('filament-calls.video', true);
+        return (bool) $this->evaluate($this->video) && config('packstub-calls.video', true);
     }
 
     public function register(Panel $panel): void
     {
         $panel
             ->authenticatedRoutes(function (): void {
-                Route::prefix('filament-calls')->name('filament-calls.')->group(function (): void {
-                    Route::get('poll', [CallsController::class, 'poll'])->name('poll');
-                    Route::post('calls', [CallsController::class, 'store'])->name('store');
-                    Route::post('calls/{call}/answer', [CallsController::class, 'answer'])->name('answer');
-                    Route::post('calls/{call}/decline', [CallsController::class, 'decline'])->name('decline');
-                    Route::post('calls/{call}/hangup', [CallsController::class, 'hangup'])->name('hangup');
-                    Route::post('calls/{call}/signals', [CallsController::class, 'signal'])->name('signal');
-                    Route::post('calls/{call}/leave', [CallsController::class, 'leave'])->name('leave');
-                    Route::get('window', WindowController::class)->name('window');
-                });
+                // The core's seven signaling routes, behind the panel's auth and CSRF, plus the pop-out page.
+                Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.');
+                Route::get('filament-calls/window', WindowController::class)->name('filament-calls.window');
             })
             // Only for a signed-in user: the login page has nobody to call or to be called by.
             ->renderHook(PanelsRenderHook::BODY_END, fn (): string => Filament::auth()->check() ? view('filament-calls::widget')->render() : '');

@@ -7,7 +7,7 @@ use Filament\Actions\Action;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Js;
-use Packstub\Calls\Calls;
+use Packstub\Calls\Facades\Calls;
 
 /**
  * A button that rings a user. Client-side only: it hands the user id to the

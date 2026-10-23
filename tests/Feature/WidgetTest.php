@@ -17,7 +17,7 @@ it('renders the call widget on every panel page with the panel routes and ICE se
         ->assertOk()
         ->assertSee('packstubCalls(', escape: false)
         ->assertSee('turn:turn.example.com')
-        ->assertSee($js(url('/admin/filament-calls/poll')), escape: false)
+        ->assertSee($js(url('/admin/filament-calls/calls/poll')), escape: false)
         ->assertSee($js(url('/admin/filament-calls/calls/__ID__/answer')), escape: false)
         ->assertSee('x-persist="filament-calls"', escape: false);
 

@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Schema;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Packstub\Calls\CallsServiceProvider;
+use Packstub\Calls\FilamentCallsServiceProvider;
 use Packstub\Calls\Tests\Fixtures\AdminPanelProvider;
 use Packstub\Calls\Tests\Fixtures\User;
 use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
@@ -58,6 +59,7 @@ abstract class TestCase extends Orchestra
             // Real apps discover filament/* before livewire; keep that order.
             LivewireServiceProvider::class,
             CallsServiceProvider::class,
+            FilamentCallsServiceProvider::class,
             AdminPanelProvider::class,
         ];
     }

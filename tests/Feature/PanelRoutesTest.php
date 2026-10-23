@@ -1,0 +1,83 @@
+<?php
+
+use Illuminate\Support\Facades\Event;
+use Packstub\Calls\Events\CallEnded;
+use Packstub\Calls\Events\CallStarted;
+use Packstub\Calls\FilamentCallsPlugin;
+use Packstub\Calls\Models\Call;
+use Packstub\Calls\Models\CallSignal;
+use Packstub\Calls\Tests\Fixtures\User;
+
+/*
+ * The signaling logic itself is tested in packstub/calls. These tests cover what
+ * the panel adds: the routes under the panel's prefix and auth, the plugin's
+ * canCall(), and names from the panel.
+ */
+
+beforeEach(function (): void {
+    $this->ion = user('Ion');
+    $this->ana = user('Ana');
+});
+
+it('registers the core routes under the panel and runs a call through them', function (): void {
+    Event::fake([CallStarted::class, CallEnded::class]);
+
+    expect(callsRoute('poll'))->toBe(url('/admin/filament-calls/calls/poll'))
+        ->and(callsRoute('store'))->toBe(url('/admin/filament-calls/calls'))
+        ->and(callsRoute('signal', ['call' => 7]))->toBe(url('/admin/filament-calls/calls/7/signals'))
+        ->and(callsRoute('window'))->toBe(url('/admin/filament-calls/window'));
+
+    $this->actingAs($this->ion)
+        ->postJson(callsRoute('store'), ['callee' => $this->ana->getKey(), 'tab' => 'win-a'])
+        ->assertCreated()
+        ->assertJsonPath('status', 'ringing')
+        ->assertJsonPath('role', 'caller')
+        ->assertJsonPath('peer.name', 'Ana');
+
+    $call = Call::query()->latest('id')->firstOrFail();
+    Event::assertDispatched(CallStarted::class);
+
+    $this->actingAs($this->ana)->getJson(callsRoute('poll'))->assertJsonPath('incoming.id', $call->id)->assertJsonPath('incoming.peer.name', 'Ion');
+    $this->actingAs($this->ion)->postJson(callsRoute('signal', ['call' => $call]), ['type' => 'offer', 'payload' => ['sdp' => 'v=0']])->assertCreated();
+    $this->actingAs($this->ana)->postJson(callsRoute('answer', ['call' => $call]), ['tab' => 'ana-1'])->assertOk()->assertJsonPath('status', 'active');
+    $this->actingAs($this->ana)->getJson(callsRoute('poll', ['call' => $call->id, 'tab' => 'ana-1', 'hold' => 1]))->assertJsonPath('signals.0.type', 'offer');
+    $this->actingAs($this->ana)->post(callsRoute('leave', ['call' => $call]), ['tab' => 'ana-1'])->assertNoContent();
+    $this->actingAs($this->ion)->postJson(callsRoute('hangup', ['call' => $call]))->assertOk()->assertJsonPath('end_reason', 'hung_up');
+
+    Event::assertDispatched(CallEnded::class);
+    expect(CallSignal::query()->count())->toBe(0);
+});
+
+it('refuses a call the panel says no to, on the server', function (): void {
+    FilamentCallsPlugin::get()->canCall(fn (User $caller, User $callee): bool => $callee->name !== 'Ana');
+
+    $this->actingAs($this->ion)->postJson(callsRoute('store'), ['callee' => $this->ana->getKey()])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'This person cannot be called.');
+    $this->actingAs($this->ana)->postJson(callsRoute('store'), ['callee' => $this->ion->getKey()])->assertCreated();
+
+    FilamentCallsPlugin::get()->canCall(null);
+
+    $this->actingAs($this->ion)->postJson(callsRoute('store'), ['callee' => $this->ion->getKey()])->assertStatus(422);
+});
+
+it('sits behind the panel\'s auth and keeps bystanders out of a call', function (): void {
+    $this->getJson(callsRoute('poll'))->assertUnauthorized();
+    $this->postJson(callsRoute('store'), ['callee' => $this->ana->getKey()])->assertUnauthorized();
+
+    $this->actingAs($this->ion)->postJson(callsRoute('store'), ['callee' => $this->ana->getKey()])->assertCreated();
+    $call = Call::query()->latest('id')->firstOrFail();
+
+    $this->actingAs(user('Mihai'))->postJson(callsRoute('signal', ['call' => $call]), ['type' => 'ice', 'payload' => ['x' => 1]])->assertForbidden();
+});
+
+it('keeps a session description byte for byte through the panel route, trailing CRLF included', function (): void {
+    $this->actingAs($this->ion)->postJson(callsRoute('store'), ['callee' => $this->ana->getKey()])->assertCreated();
+    $call = Call::query()->latest('id')->firstOrFail();
+    $this->actingAs($this->ana)->postJson(callsRoute('answer', ['call' => $call]));
+
+    $sdp = "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\na=ssrc:1 msid:a b\r\n";
+    $this->actingAs($this->ion)->postJson(callsRoute('signal', ['call' => $call]), ['type' => 'offer', 'payload' => ['sdp' => $sdp]])->assertCreated();
+
+    expect($this->actingAs($this->ana)->getJson(callsRoute('poll', ['call' => $call->id, 'tab' => 'tab', 'hold' => 1]))->json('signals.0.payload.sdp'))->toBe($sdp);
+});

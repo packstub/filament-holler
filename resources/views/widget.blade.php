@@ -27,8 +27,8 @@
             'call' => (int) request()->query('call') ?: null,
             'callee' => (string) request()->query('callee') ?: null,
         ]) : null,
-        'poll' => config('filament-calls.poll'),
-        'reconnectTimeout' => (int) config('filament-calls.reconnect_timeout', 15) * 1000,
+        'poll' => config('packstub-calls.poll'),
+        'reconnectTimeout' => (int) config('packstub-calls.reconnect_timeout', 15) * 1000,
         'labels' => __('filament-calls::calls'),
     ];
 @endphp

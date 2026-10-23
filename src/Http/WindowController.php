@@ -4,7 +4,7 @@ namespace Packstub\Calls\Http;
 
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
-use Packstub\Calls\Calls;
+use Packstub\Calls\Facades\Calls;
 use Packstub\Calls\Models\Call;
 
 /**
@@ -21,7 +21,7 @@ class WindowController
         if ($callId) {
             $call = Call::query()->findOrFail($callId);
 
-            abort_unless($call->involves(Calls::currentUserId()), 403);
+            abort_unless($call->involves((string) Calls::currentUserId()), 403);
         }
 
         return view('filament-calls::window');
