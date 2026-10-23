@@ -1,0 +1,36 @@
+<?php
+
+return [
+    'call' => 'Call',
+    'someone' => 'Someone',
+    'cannot_call' => 'This person cannot be called.',
+    'busy' => 'This person is on another call.',
+    'not_ringing' => 'This call is no longer ringing.',
+    'ended' => 'This call has ended.',
+
+    'incoming' => 'is calling you',
+    'calling' => 'Calling…',
+    'connecting' => 'Connecting…',
+    'reconnecting' => 'Reconnecting…',
+    'open_window' => 'Open the call window',
+    'window_closed' => 'Call window closed',
+    'accept' => 'Accept',
+    'decline' => 'Decline',
+    'hang_up' => 'Hang up',
+    'mute' => 'Mute',
+    'unmute' => 'Unmute',
+    'camera_off' => 'Turn camera off',
+    'camera_on' => 'Turn camera on',
+    'share_screen' => 'Share screen',
+    'stop_sharing' => 'Stop sharing',
+    'you' => 'You',
+
+    'ended_declined' => 'Call declined',
+    'ended_cancelled' => 'Call cancelled',
+    'ended_missed' => 'No answer',
+    'ended_hung_up' => 'Call ended',
+    'ended_failed' => 'Could not connect',
+    'ended_dropped' => 'Connection lost',
+    'ended_busy' => 'Busy',
+    'no_media' => 'Could not access your camera or microphone.',
+];

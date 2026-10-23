@@ -1,0 +1,54 @@
+<?php
+
+namespace Workbench\App\Providers;
+
+use Filament\Http\Middleware\Authenticate;
+use Filament\Http\Middleware\DisableBladeIconComponents;
+use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Pages\Dashboard;
+use Filament\Panel;
+use Filament\PanelProvider;
+use Filament\Support\Colors\Color;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Session\Middleware\AuthenticateSession;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Packstub\Calls\FilamentCallsPlugin;
+use Workbench\App\Filament\Resources\Users\UserResource;
+
+class AdminPanelProvider extends PanelProvider
+{
+    public function panel(Panel $panel): Panel
+    {
+        return $panel
+            ->default()
+            ->id('admin')
+            ->path('admin')
+            ->login()
+            ->spa((bool) env('CALLS_SPA', false))
+            ->pages([Dashboard::class])
+            ->resources([UserResource::class])
+            ->colors(['primary' => Color::Indigo])
+            ->plugins([
+                // CALLS_POP_OUT=true|false forces the pop-out; unset, it follows SPA mode.
+                FilamentCallsPlugin::make()->popOut(env('CALLS_POP_OUT') === null ? null : filter_var(env('CALLS_POP_OUT'), FILTER_VALIDATE_BOOL)),
+            ])
+            ->middleware([
+                EncryptCookies::class,
+                AddQueuedCookiesToResponse::class,
+                StartSession::class,
+                AuthenticateSession::class,
+                ShareErrorsFromSession::class,
+                VerifyCsrfToken::class,
+                SubstituteBindings::class,
+                DisableBladeIconComponents::class,
+                DispatchServingFilamentEvent::class,
+            ])
+            ->authMiddleware([
+                Authenticate::class,
+            ]);
+    }
+}
