@@ -25,3 +25,4 @@
 /CLAUDE.md          export-ignore
 /CHANGELOG.md       export-ignore
 /UPGRADE.md         export-ignore
+/package-lock.json  export-ignore

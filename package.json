@@ -1,0 +1,11 @@
+{
+    "name": "filament-calls",
+    "private": true,
+    "description": "Build helper: copies the @packstub/calls engine into resources/dist/calls-core.js (committed, so Composer users need no npm).",
+    "scripts": {
+        "build:js": "cp node_modules/@packstub/calls/src/index.js resources/dist/calls-core.js"
+    },
+    "devDependencies": {
+        "@packstub/calls": "github:packstub/calls-js"
+    }
+}
