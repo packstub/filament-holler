@@ -4,10 +4,11 @@ namespace Packstub\FilamentCalls\Actions;
 
 use Closure;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Js;
-use Packstub\Calls\Facades\Calls;
+use Packstub\FilamentCalls\FilamentCallsPlugin;
 
 /**
  * A button that rings a user. Client-side only: it hands the user id to the
@@ -34,10 +35,20 @@ class CallAction extends Action
         // Closures take the injected $action, not $this: a table clones the action per row,
         // and a closure bound to the original would never see the row's record.
         // Nobody calls themselves, and only Authenticatable records can be called.
+        // Only where the panel runs the plugin, and for someone the signed-in user may call.
         $this->visible(function (CallAction $action): bool {
             $user = $action->getUser();
+            $me = Filament::auth()->user();
+            $panel = Filament::getCurrentOrDefaultPanel();
 
-            return $user !== null && (string) $user->getAuthIdentifier() !== Calls::currentUserId();
+            if (! $user || ! $me || ! $panel?->hasPlugin('filament-calls')) {
+                return false;
+            }
+
+            /** @var FilamentCallsPlugin $plugin */
+            $plugin = $panel->getPlugin('filament-calls');
+
+            return $plugin->isCallAllowed($me, $user);
         });
 
         $this->alpineClickHandler(fn (CallAction $action): string => '$dispatch(\'filament-calls-call\', { user: '.Js::from((string) $action->getUser()?->getAuthIdentifier()).' })');

@@ -5,10 +5,13 @@ namespace Packstub\FilamentCalls;
 use Closure;
 use Filament\Contracts\Plugin;
 use Filament\Facades\Filament;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Filament\Support\Concerns\EvaluatesClosures;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
 use Packstub\Calls\Facades\Calls;
 use Packstub\FilamentCalls\Http\WindowController;
@@ -47,8 +50,9 @@ class FilamentCallsPlugin implements Plugin
     }
 
     /**
-     * Decide who may call whom. Receives the caller and the callee; the default
-     * lets any two different users of the panel call each other.
+     * Decide who may call whom. Receives the caller and the callee. Whatever it
+     * says, nobody calls themselves or someone who cannot open the panel; without
+     * it, two users of a panel with tenancy must share a tenant.
      */
     public function canCall(?Closure $callback): static
     {
@@ -106,7 +110,9 @@ class FilamentCallsPlugin implements Plugin
 
     public function isPopOut(): bool
     {
-        return $this->evaluate($this->popOut) ?? ! Filament::getCurrentOrDefaultPanel()->hasSpaMode();
+        // An SPA panel keeps the call across pages by itself; elsewhere the core's `pop_out` (CALLS_POP_OUT) decides.
+        return $this->evaluate($this->popOut)
+            ?? (! Filament::getCurrentOrDefaultPanel()->hasSpaMode() && (bool) config('packstub-calls.pop_out', true));
     }
 
     public function isCallAllowed(Authenticatable $caller, Authenticatable $callee): bool
@@ -115,11 +121,39 @@ class FilamentCallsPlugin implements Plugin
             return false;
         }
 
+        $panel = Filament::getCurrentOrDefaultPanel();
+
+        // Only someone who can open this panel, the way Filament's own middleware decides.
+        if ($panel && ! static::canAccess($callee, $panel)) {
+            return false;
+        }
+
         if (! $this->canCall) {
-            return true;
+            return ! $panel?->hasTenancy() || static::shareTenant($caller, $callee, $panel);
         }
 
         return (bool) $this->evaluate($this->canCall, ['caller' => $caller, 'callee' => $callee]);
+    }
+
+    protected static function canAccess(Authenticatable $user, Panel $panel): bool
+    {
+        if ($user instanceof FilamentUser) {
+            return $user->canAccessPanel($panel);
+        }
+
+        return app()->environment('local');
+    }
+
+    /** The routes carry no tenant, so two users of a panel with tenancy must have one in common. */
+    protected static function shareTenant(Authenticatable $caller, Authenticatable $callee, Panel $panel): bool
+    {
+        if (! $caller instanceof HasTenants || ! $callee instanceof HasTenants) {
+            return false;
+        }
+
+        $mine = collect($caller->getTenants($panel))->map(fn (Model $tenant) => $tenant->getMorphClass().':'.$tenant->getKey());
+
+        return collect($callee->getTenants($panel))->contains(fn (Model $tenant) => $mine->contains($tenant->getMorphClass().':'.$tenant->getKey()));
     }
 
     /** @return array<int, array<string, mixed>> */

@@ -38,6 +38,12 @@ class PanelContext implements CallContext
         return Filament::getCurrentOrDefaultPanel();
     }
 
+    /** The panel's guard: users of two panels on different guards never ring each other. */
+    public function scope(): string
+    {
+        return $this->panel() ? (string) $this->panel()->getAuthGuard() : $this->app->scope();
+    }
+
     public function currentUserId(): ?string
     {
         if (! $this->panel()) {

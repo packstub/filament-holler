@@ -14,8 +14,9 @@ class User extends Authenticatable implements FilamentUser
 
     protected $hidden = ['password', 'remember_token'];
 
+    /** Everyone but "Locked", for the tests that need someone who cannot open the panel. */
     public function canAccessPanel(Panel $panel): bool
     {
-        return true;
+        return $this->name !== 'Locked';
     }
 }
