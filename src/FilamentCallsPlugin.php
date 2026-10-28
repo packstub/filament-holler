@@ -149,9 +149,6 @@ class FilamentCallsPlugin implements Plugin
         return app()->environment('local');
     }
 
-    /** @var array<string, array<int, string>> the caller's tenant keys, per caller and panel, for one request */
-    protected static array $tenantKeys = [];
-
     /**
      * Whether two users of a panel with tenancy have a tenant in common (the routes carry
      * no tenant). Inside a tenant, asking the callee about it is enough; otherwise the
@@ -170,16 +167,26 @@ class FilamentCallsPlugin implements Plugin
             return true;
         }
 
-        $cacheKey = $panel->getId().'|'.$caller::class.':'.$caller->getAuthIdentifier();
-        $mine = static::$tenantKeys[$cacheKey] ??= collect($caller->getTenants($panel))->map(fn (Model $tenant) => $tenant->getMorphClass().':'.$tenant->getKey())->all();
+        // Kept on the request, so a long-running worker (Octane) never carries it to the next one.
+        $cacheKey = 'filament-calls.tenants.'.$panel->getId().'|'.$caller::class.':'.$caller->getAuthIdentifier();
+        $mine = request()->attributes->get($cacheKey);
+
+        if ($mine === null) {
+            $mine = collect($caller->getTenants($panel))->map(fn (Model $tenant) => $tenant->getMorphClass().':'.$tenant->getKey())->all();
+            request()->attributes->set($cacheKey, $mine);
+        }
 
         return collect($callee->getTenants($panel))->contains(fn (Model $tenant) => in_array($tenant->getMorphClass().':'.$tenant->getKey(), $mine, true));
     }
 
-    /** Forget what was read about tenants (a long-running worker between requests, tests). */
+    /** Forget the tenants read during this request (tests, or after changing someone's tenants). */
     public static function flushTenantCache(): void
     {
-        static::$tenantKeys = [];
+        foreach (array_keys(request()->attributes->all()) as $key) {
+            if (str_starts_with((string) $key, 'filament-calls.tenants.')) {
+                request()->attributes->remove($key);
+            }
+        }
     }
 
     /** @return array<int, array<string, mixed>> */
