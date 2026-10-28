@@ -26,6 +26,8 @@ class FilamentCallsPlugin implements Plugin
 
     protected bool|Closure|null $popOut = null;
 
+    protected int|Closure|null $maxParticipants = null;
+
     public static function make(): static
     {
         return app(static::class);
@@ -85,6 +87,23 @@ class FilamentCallsPlugin implements Plugin
         return $this;
     }
 
+    /**
+     * People on one call, the caller included (default: the core's `max_participants`,
+     * 4). The browsers connect to each other directly, so each uploads its media once
+     * per other participant; four is where that stops being comfortable.
+     */
+    public function maxParticipants(int|Closure|null $max): static
+    {
+        $this->maxParticipants = $max;
+
+        return $this;
+    }
+
+    public function getMaxParticipants(): int
+    {
+        return max(2, (int) ($this->evaluate($this->maxParticipants) ?? config('packstub-calls.max_participants', 4)));
+    }
+
     public function isPopOut(): bool
     {
         return $this->evaluate($this->popOut) ?? ! Filament::getCurrentOrDefaultPanel()->hasSpaMode();
@@ -118,7 +137,7 @@ class FilamentCallsPlugin implements Plugin
     {
         $panel
             ->authenticatedRoutes(function (): void {
-                // The core's seven signaling routes, behind the panel's auth and CSRF, plus the pop-out page.
+                // The core's eight signaling routes, behind the panel's auth and CSRF, plus the pop-out page.
                 Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.');
                 Route::get('filament-calls/window', WindowController::class)->name('filament-calls.window');
             })

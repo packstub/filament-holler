@@ -1,12 +1,13 @@
 # Filament Calls
 
-1-on-1 audio, video and screen-share calls inside a Filament panel, peer to peer over WebRTC. The media goes straight from one browser to the other; your Laravel app only handles who calls whom and passes the few signaling messages the browsers need to find each other. Polling over plain HTTP, so there is no websocket server to run.
+Audio, video and screen-share calls inside a Filament panel, one on one or in small groups, peer to peer over WebRTC. The media goes straight from one browser to the other; your Laravel app only handles who calls whom and passes the few signaling messages the browsers need to find each other. Polling over plain HTTP, so there is no websocket server to run.
 
 - A `CallAction` for any record that is a user: a table row, a page header, an infolist.
-- A call widget on every page of the panel: an incoming-call toast with Accept and Decline, then a floating window with the other person's video, yours in a corner, mute, camera off, screen share and hang up. The other side sees when you mute, turn the camera off or share your screen.
+- A call widget on every page of the panel: an incoming-call toast with Accept and Decline, then a floating window with a tile per other person (their video, or their avatar), yours in a corner, mute, camera off, screen share and hang up. Everyone sees who muted, turned the camera off or shares a screen; a shared screen takes the stage in the other windows, shown whole, with the cameras in a strip on top or on the side, wherever the screen gets more room.
+- Group calls up to four: on a call, the same Call button adds that person to it. The browsers connect to each other directly, no media server; someone who hangs up leaves the call for the others.
 - The call follows the person around the panel: in its own small pop-out window (the main tab can go anywhere, reload or close), or in the page itself in SPA mode. A full page load mid-call reconnects within a few seconds instead of dropping it.
 - Voice fallback when there is no camera; a voice-only mode per panel.
-- `canCall()` to decide who may call whom; `CallStarted`, `CallAnswered`, `CallEnded` events and a `calls` table with durations for a call log.
+- `canCall()` to decide who may call whom; `CallStarted`, `CallAnswered`, `ParticipantJoined`, `ParticipantLeft`, `CallEnded` events and `calls` and `call_participants` tables with durations for a call log.
 - STUN out of the box, your own TURN server through four env variables for networks where a direct path fails (the relay only forwards encrypted packets).
 - Built on [Calls for Laravel](https://github.com/packstub/calls) (the signaling backend, installed with this package) and [`@packstub/calls`](https://github.com/packstub/calls-js) (the browser engine, bundled). Both work without Filament too.
 
@@ -74,6 +75,16 @@ FilamentCallsPlugin::make()
 
 The check runs on the server when a call starts, not only when the button renders.
 
+### Group calls
+
+While on a call, clicking Call on another person adds them to it: they get the usual toast (with how many people are already on), and once they accept everyone connects to them. The window shows a tile per other participant, two by two. Four people on a call is the default limit; the browsers connect to each other directly, so each uploads its media once per other participant, and four is where that stops being comfortable on ordinary connections.
+
+```php
+FilamentCallsPlugin::make()->maxParticipants(3)   // or CALLS_MAX_PARTICIPANTS in .env
+```
+
+Someone who hangs up leaves the call for the others (the rest see "… left the call"); the call ends once one person is left. To go beyond four, the engine's `topology` option takes an SFU adapter in place of the mesh; see [`@packstub/calls`](https://github.com/packstub/calls-js).
+
 ### Voice calls
 
 ```php
@@ -131,10 +142,11 @@ Every open panel tab asks the server for incoming calls every 5 seconds and, dur
 use Packstub\Calls\Events\CallEnded;
 
 Event::listen(CallEnded::class, function (CallEnded $event) {
-    $event->call->caller_id;   // user ids as strings
-    $event->call->callee_id;
-    $event->call->end_reason;  // declined | cancelled | missed | hung_up | failed | dropped
-    $event->call->duration();  // seconds, null if never answered
+    $event->call->caller_id;     // user ids as strings
+    $event->call->callee_id;     // the first person called
+    $event->call->participants;  // everyone, with seat, status and times
+    $event->call->end_reason;    // declined | cancelled | missed | hung_up | failed | dropped
+    $event->call->duration();    // seconds, null if never answered
 });
 ```
 
@@ -142,7 +154,7 @@ Event::listen(CallEnded::class, function (CallEnded $event) {
 
 ## Outside Filament
 
-The panel is a thin layer. [`packstub/calls`](https://github.com/packstub/calls) is the server side on its own (`Calls::routes()`, the `Calls` service, a `CallContext` for who is who and who may call whom) and [`@packstub/calls`](https://github.com/packstub/calls-js) the browser engine (`CallClient`, `HttpSignaling`), for a Laravel app without Filament or another backend speaking the same seven endpoints. This plugin binds a `PanelContext` that answers from the current panel (its guard, `getUserName()` / `getUserAvatarUrl()`, the plugin's `canCall()`, `iceServers()` and `video()`), registers the routes under the panel, and ships the widget, the `CallAction` and the pop-out window.
+The panel is a thin layer. [`packstub/calls`](https://github.com/packstub/calls) is the server side on its own (`Calls::routes()`, the `Calls` service, a `CallContext` for who is who and who may call whom) and [`@packstub/calls`](https://github.com/packstub/calls-js) the browser engine (`CallClient`, `HttpSignaling`), for a Laravel app without Filament or another backend speaking the same eight endpoints. This plugin binds a `PanelContext` that answers from the current panel (its guard, `getUserName()` / `getUserAvatarUrl()`, the plugin's `canCall()`, `iceServers()`, `video()` and `maxParticipants()`), registers the routes under the panel, and ships the widget, the `CallAction` and the pop-out window.
 
 ## Testing
 

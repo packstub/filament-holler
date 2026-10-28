@@ -60,6 +60,7 @@ export default function packstubCalls(config) {
     let clock = null
     let popup = null
     let takeBackTimer = null
+    let resizeObserver = null
     const ring = ringer()
 
     const windowUrl = (params) => config.windowUrl.replace('__ID__', encodeURIComponent(params.call ?? '')).replace('__USER__', encodeURIComponent(params.callee ?? ''))
@@ -70,11 +71,10 @@ export default function packstubCalls(config) {
         muted: false,
         cameraOff: false,
         sharing: false,
-        remoteVideo: false,
-        // What the other side told us about itself.
-        peerMuted: false,
-        peerCameraOff: false,
-        peerSharing: false,
+        // Everyone else on the call: { id, name, avatar, seat, status, alive, connected, muted, cameraOff, sharing, stream, hasVideo }.
+        peers: [],
+        // Where the cameras go while someone's screen has the stage: 'top' or 'right', whichever leaves the screen more room.
+        strip: 'top',
         seconds: 0,
         notice: null,
         popup: Boolean(config.popup),
@@ -91,6 +91,7 @@ export default function packstubCalls(config) {
                 video: config.video,
                 poll: config.poll,
                 reconnectTimeout: config.reconnectTimeout,
+                maxParticipants: config.maxParticipants,
                 // A tab that leaves calls to the pop-out never takes one over itself.
                 resumes: ! this.popOut,
             })
@@ -114,26 +115,32 @@ export default function packstubCalls(config) {
                 else if (! ['reconnecting', 'connecting'].includes(state)) this.stopClock()
             })
 
-            client.addEventListener('incoming', ({ detail: { call } }) => { this.call = call })
+            client.addEventListener('incoming', ({ detail: { call } }) => {
+                this.call = call
+                this.syncPeers()
+            })
             client.addEventListener('update', ({ detail: { call } }) => {
                 this.call = call
+                this.syncPeers()
                 this.watchWindow()
             })
             client.addEventListener('localstream', ({ detail: { stream } }) => this.attach(this.$refs.local, stream))
-            client.addEventListener('remotestream', ({ detail: { stream } }) => {
-                this.attach(this.$refs.remote, stream)
-                this.remoteVideo = stream.getVideoTracks().length > 0
+            // A shared screen takes the stage: the look of every window on the call changes with it.
+            client.addEventListener('peerstate', ({ detail: { peer, sharing } }) => {
+                this.syncPeers()
+                this.$dispatch('filament-calls-sharing', { peer, sharing, spotlight: this.spotlight })
             })
-            client.addEventListener('peerstate', ({ detail: { muted, cameraOff, sharing } }) => {
-                this.peerMuted = muted
-                this.peerCameraOff = cameraOff
-                this.peerSharing = sharing
+            // The roster, who is connected, muted or sharing, and whose media arrived: one event, the tiles follow.
+            client.addEventListener('peers', () => this.syncPeers())
+            client.addEventListener('remotestream', () => this.syncPeers())
+            client.addEventListener('peerleft', ({ detail: { peer, reason } }) => {
+                const label = config.labels[`peer_${reason}`]
+                if (label && this.peers.length > 0) this.show(label.replace(':name', peer.name))
             })
 
             client.addEventListener('ended', ({ detail: { reason } }) => {
-                this.remoteVideo = false
+                this.peers = []
                 this.sharing = false
-                this.peerMuted = this.peerCameraOff = this.peerSharing = false
                 clearTimeout(takeBackTimer)
                 takeBackTimer = null
                 this.show(config.labels[`ended_${reason}`] || config.labels.ended_hung_up)
@@ -163,9 +170,27 @@ export default function packstubCalls(config) {
             } else {
                 client.start()
             }
+
+            if (this.$refs.stage && typeof ResizeObserver === 'function') {
+                resizeObserver = new ResizeObserver(([entry]) => this.placeStrip(entry.contentRect.width, entry.contentRect.height))
+                resizeObserver.observe(this.$refs.stage)
+            }
+        },
+
+        /**
+         * Which side the cameras go to while a screen has the stage: the one that leaves a
+         * 16:9 screen the bigger picture. A strip on the right costs width, one on top height.
+         */
+        placeStrip(width, height) {
+            if (! width || ! height) return
+            const fit = (w, h) => Math.min(w, h * 16 / 9)
+            const withRight = fit(width - Math.max(112, width * 0.22), height)
+            const withTop = fit(width, height - Math.max(84, height * 0.22))
+            this.strip = withRight > withTop ? 'right' : 'top'
         },
 
         destroy() {
+            resizeObserver?.disconnect()
             window.removeEventListener('filament-calls-call', this.onCall)
             window.removeEventListener('pagehide', this.onLeave)
             this.stopClock()
@@ -176,6 +201,12 @@ export default function packstubCalls(config) {
 
         start(user) {
             if (! user) return
+
+            // On a call already (here, or in my pop-out): the button adds the person to it.
+            if (this.inCall || this.state === 'elsewhere') {
+                this.add(user)
+                return
+            }
 
             // The pop-out, or the page itself when the browser blocks the window.
             if (this.popOut && this.openWindow({ callee: user })) return
@@ -196,6 +227,37 @@ export default function packstubCalls(config) {
 
         decline() { client.decline() },
         hangUp() { client.hangUp() },
+
+        /** Add someone to the call I am on; the server rings them and everyone on the call connects to them. */
+        async add(user) {
+            if (! client.canInvite()) {
+                this.show(config.labels.call_full)
+                return
+            }
+
+            try {
+                const call = await client.invite(String(user))
+                const peer = call.peers?.find((candidate) => String(candidate.id) === String(user))
+                this.show(config.labels.inviting.replace(':name', peer?.name ?? ''))
+            } catch (error) {
+                this.show(error?.full ? config.labels.call_full : (error?.message || config.labels.call_full))
+            }
+        },
+
+        /** The peer whose screen has the stage: the first one sharing with video coming in, or null. */
+        get spotlight() {
+            return this.peers.find((peer) => peer.sharing && peer.hasVideo)?.id ?? null
+        },
+
+        /** A snapshot of the roster for the tiles. */
+        syncPeers() {
+            this.peers = client.peers.map((peer) => ({ ...peer, hasVideo: (peer.stream?.getVideoTracks().length ?? 0) > 0 }))
+        },
+
+        /** This person's video is worth showing: there is one, and it is not a camera they turned off. */
+        showRemote(peer) {
+            return peer.hasVideo && (! peer.cameraOff || peer.sharing)
+        },
 
         /** Open the pop-out; false when the browser blocked it (then the call stays on this page). */
         openWindow(params) {
@@ -270,9 +332,9 @@ export default function packstubCalls(config) {
         },
 
         attach(video, stream) {
-            if (! video) return
-            video.srcObject = stream
-            video.play?.().catch(() => {})
+            if (! video || video.srcObject === (stream ?? null)) return
+            video.srcObject = stream ?? null
+            if (stream) video.play?.().catch(() => {})
         },
 
         startClock() {
@@ -298,9 +360,19 @@ export default function packstubCalls(config) {
             return ACTIVE_STATES.includes(this.state)
         },
 
-        /** The other side's video is worth showing: there is one, and it is not a camera they turned off. */
-        get showRemote() {
-            return this.remoteVideo && (! this.peerCameraOff || this.peerSharing)
+        /** Who is on the call with me, for the header and the chip. */
+        get names() {
+            const names = this.peers.map((peer) => peer.name)
+            return names.length ? names.join(', ') : (this.call?.peer?.name ?? '')
+        },
+
+        /** On an incoming call: how many people are on it besides the one calling me. */
+        get others() {
+            return Math.max(0, this.peers.length - 1)
+        },
+
+        get othersLabel() {
+            return config.labels.and_more.replace(':count', this.others)
         },
 
         get elapsed() {

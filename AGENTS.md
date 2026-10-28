@@ -1,7 +1,7 @@
 # packstub/filament-calls
 
-Free (MIT) Filament v4/v5 plugin: 1-on-1 audio/video/screen-share calls between panel users, peer to peer over
-WebRTC. The panel side of `packstub/calls` (the sibling repo, `plugins/calls`), which owns the signaling backend:
+Free (MIT) Filament v4/v5 plugin: audio/video/screen-share calls between panel users, 1-on-1 and groups up to
+`maxParticipants()` (4), peer to peer over WebRTC (a mesh). The panel side of `packstub/calls` (the sibling repo, `plugins/calls`), which owns the signaling backend:
 tables, models, events, config (`packstub-calls`, `CALLS_*` env), the `Calls` service and facade, the
 `CallContext` contract and `CallsController`. The browser engine is `@packstub/calls` (`plugins/calls-js`),
 bundled here as `resources/dist/calls-core.js`. The two PHP packages share the `Packstub\Calls\` namespace
@@ -35,20 +35,22 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
 - `resources/dist/calls-core.js`: a copy of `@packstub/calls` (`plugins/calls-js`, where the engine's own tests live). Never edit it here.
 - `resources/dist/calls.js`: the Alpine component (`packstubCalls`), imports `../calls-core.js` relative to its
   published URL (Alpine components land in `components/`; the core is a `Js` asset `loadedOnRequest()` so it is published but not put in `<head>`).
-  Draws state, plays the ring, attaches streams to the two `<video>` refs, shows the other side's mute, camera-off and
-  screen-share badges (`peerstate`, `data-peer="…"`). When `window.open` returns null (pop-ups blocked) the call stays
+  Draws state, plays the ring, keeps `peers` (the engine's roster plus `hasVideo`) for one tile per other participant
+  (`template x-for`, `data-peer-id`, `x-effect` attaches the stream, badges `data-peer="muted|sharing|camera-off"`,
+  the name with "Calling…" / "Connecting…"). `start(user)` while on a call (or `elsewhere`, the pop-out running it)
+  becomes `add(user)`: `client.invite()`, so the Call button doubles as "add to call". When `window.open` returns null (pop-ups blocked) the call stays
   on the page with a notice. `watchWindow()`: a main tab in `elsewhere` whose call nobody holds any more takes it
   back (`client.takeOver()`, which looks at the server first) at once when it knows its pop-out closed, else after
   `TAKE_BACK_DELAY` (3 s, so a reloading pop-out keeps its side). `resources/dist/calls.css`: the widget.
 - `resources/views/widget.blade.php`: rendered by the plugin's `BODY_END` render hook inside `@persist`; passes
   routes (`__ID__` placeholder for the call id), CSRF token, ICE servers, poll intervals and labels to Alpine.
-- `src/FilamentCallsPlugin.php`: `canCall()`, `iceServers()`, `video()`, `popOut()` (null = pop out unless the
+- `src/FilamentCallsPlugin.php`: `canCall()`, `iceServers()`, `video()`, `maxParticipants()` (never below 2), `popOut()` (null = pop out unless the
   panel has SPA mode); registers `Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.')`
   and the window route inside `$panel->authenticatedRoutes()` (so they sit behind the panel's auth and CSRF),
   and the render hook (signed-in users only).
 - `src/PanelContext.php`: the core's `CallContext` for a panel (bound by `FilamentCallsServiceProvider`, winning
   over the core's `AppContext`): `Filament::auth()`, `getUserName()` / `getUserAvatarUrl()`, and the plugin's
-  options; falls back to `AppContext` outside a panel.
+  options (`maxParticipants()` included); falls back to `AppContext` outside a panel.
 - Reconnect handshake (core): a page that loads mid-call polls, is handed the open call, claims it with `hold`,
   builds a new `RTCPeerConnection`, sends `reset {session}` then an offer; the other side rebuilds its
   connection on `reset` as the polite side and answers. Signals carry `session`; a mismatch is dropped.
@@ -64,7 +66,9 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
   itself is tested in `packstub/calls`; run that suite too after a change there. `tests/e2e/calls.spec.js`
   (Playwright, `composer test:e2e`) is the only test that runs the real thing: two browser contexts, the pop-outs,
   WebRTC over loopback, a reload mid-call, mute and screen share seen by the other side, the main tab taking the
-  call back when its pop-out closes, and the page itself when `window.open` is blocked. Run it after a change in
+  call back when its pop-out closes, the page itself when `window.open` is blocked, and a three-person call (Mihai
+  added from Ion's Team page while the pop-out runs the call, tiles with live tracks everywhere, a mute seen on
+  the right tile, Ana's reload, Mihai hanging up while the call goes on). Run it after a change in
   any of the three repos; the e2e job in `tests.yml` runs it too.
 
 ## Conventions

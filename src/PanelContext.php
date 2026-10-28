@@ -59,6 +59,19 @@ class PanelContext implements CallContext
         return $user instanceof Authenticatable ? $user : null;
     }
 
+    /**
+     * @param  array<int, string>  $ids
+     * @return array<int, Authenticatable>
+     */
+    public function findUsers(array $ids): array
+    {
+        if (! $this->panel()) {
+            return $this->app->findUsers($ids);
+        }
+
+        return AppContext::retrieveMany(Filament::auth()->getProvider(), $ids);
+    }
+
     public function who(Authenticatable $user): array
     {
         if (! $this->panel() || ! $user instanceof Model) {
@@ -85,5 +98,10 @@ class PanelContext implements CallContext
     public function hasVideo(): bool
     {
         return $this->plugin()?->hasVideo() ?? $this->app->hasVideo();
+    }
+
+    public function maxParticipants(): int
+    {
+        return $this->plugin()?->getMaxParticipants() ?? $this->app->maxParticipants();
     }
 }

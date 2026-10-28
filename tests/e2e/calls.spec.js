@@ -111,8 +111,13 @@ test('a call between two people in their pop-outs: connected, reconnected after 
     await expect(ionWindow.locator('[data-peer=muted]')).toBeVisible()
     await anaWindow.getByTitle('Share screen').click()
     await expect(ionWindow.locator('[data-peer=sharing]')).toBeVisible()
+    // Her screen takes Ion's stage whole; with nobody else on the call there is no strip of cameras.
+    await expect(ionWindow.locator('.fi-calls-stage')).toHaveAttribute('data-spotlight', /.+/)
+    await expect(ionWindow.locator('.fi-calls-stage')).toHaveAttribute('data-strip', 'none')
+    await expect(ionWindow.locator('.fi-calls-tile[data-role=spotlight] video')).toHaveCSS('object-fit', 'contain')
     await anaWindow.getByTitle('Stop sharing').click()
     await expect(ionWindow.locator('[data-peer=sharing]')).toBeHidden()
+    await expect(ionWindow.locator('.fi-calls-stage')).not.toHaveAttribute('data-spotlight')
     await anaWindow.getByTitle('Unmute').click()
     await expect(ionWindow.locator('[data-peer=muted]')).toBeHidden()
 
@@ -174,4 +179,92 @@ test('the call stays on the page when the browser blocks the pop-out', async () 
     await ana.locator('.fi-calls-window').getByTitle('Hang up').click()
     await expect.poll(() => state(ion)).toBe('idle')
     await expect(ion.getByRole('status').filter({ hasText: 'Call ended' })).toBeVisible()
+})
+
+/** The tile of a participant on a page, by their name. */
+const tile = (page, name) => page.locator('.fi-calls-tile').filter({ has: page.locator('.fi-calls-tile-name', { hasText: name }) })
+
+/** Names and media of every tile on a page, e.g. [['Ana Popescu', ['audio:live', 'video:live']]]. */
+const peers = (page) => page.evaluate(() => [...document.querySelectorAll('.fi-calls-tile')].map((tile) => [
+    tile.querySelector('.fi-calls-tile-name span')?.textContent.trim(),
+    tile.querySelector('video')?.srcObject ? tile.querySelector('video').srcObject.getTracks().map((track) => `${track.kind}:${track.readyState}`).sort() : [],
+]).sort((a, b) => a[0].localeCompare(b[0])))
+
+const expectPeers = (page, names) => expect.poll(() => peers(page), { timeout: 30_000 }).toEqual(names.map((name) => [name, ['audio:live', 'video:live']]))
+
+test('three people on one call: the third is added from the Team page, everyone sees everyone, and the call goes on when one leaves', async ({ browser }) => {
+    const mihai = await signIn(await browser.newContext(), 'mihai@example.com')
+
+    try {
+        const ionWindow = await ring(ion)
+        const anaWindow = await answer(ana)
+        await expectActive(ionWindow)
+        await expectActive(anaWindow)
+
+        // Ion adds Mihai from the Team page while his pop-out runs the call.
+        await ion.getByRole('row', { name: /Mihai Rusu/ }).getByRole('button', { name: 'Call' }).click()
+        await expect(ion.getByRole('status').filter({ hasText: 'Ringing Mihai Rusu' })).toBeVisible()
+        await expect(mihai.getByRole('alertdialog')).toContainText('Ion Caliman', { timeout: 30_000 })
+        await expect(mihai.getByRole('alertdialog')).toContainText('+1')
+        await expect(ionWindow.locator('.fi-calls-tile-name', { hasText: 'Mihai Rusu' })).toContainText('Calling')
+
+        const [mihaiWindow] = await Promise.all([
+            mihai.context().waitForEvent('page'),
+            mihai.getByRole('alertdialog').getByTitle('Accept').click(),
+        ])
+
+        // Everyone has a tile for each of the other two, with live audio and video.
+        await expectPeers(ionWindow, ['Ana Popescu', 'Mihai Rusu'])
+        await expectPeers(anaWindow, ['Ion Caliman', 'Mihai Rusu'])
+        await expectPeers(mihaiWindow, ['Ana Popescu', 'Ion Caliman'])
+        await expect(ionWindow.locator('.fi-calls-grid')).toHaveAttribute('data-count', '2')
+        await expect.poll(() => state(mihaiWindow)).toBe('active')
+        await expect(ionWindow.locator('.fi-calls-header .fi-calls-name')).toHaveText('Ana Popescu, Mihai Rusu')
+
+        // Mihai mutes: his tile says so in the other two windows, and nobody else's does.
+        await mihaiWindow.getByTitle('Mute').click()
+        await expect(tile(ionWindow, 'Mihai Rusu').locator('[data-peer=muted]')).toBeVisible()
+        await expect(tile(ionWindow, 'Ana Popescu').locator('[data-peer=muted]')).toBeHidden()
+        await expect(tile(anaWindow, 'Mihai Rusu').locator('[data-peer=muted]')).toBeVisible()
+
+        // Mihai shares his screen: in the other two windows (460 wide, taller than wide) his tile takes
+        // the stage and the other camera moves into a strip on top; the look goes back once he stops.
+        await mihaiWindow.getByTitle('Share screen').click()
+        await expect(tile(ionWindow, 'Mihai Rusu')).toHaveAttribute('data-role', 'spotlight')
+        await expect(tile(ionWindow, 'Ana Popescu')).toHaveAttribute('data-role', 'strip')
+        await expect(ionWindow.locator('.fi-calls-stage')).toHaveAttribute('data-strip', 'top')
+        await expect(tile(anaWindow, 'Mihai Rusu')).toHaveAttribute('data-role', 'spotlight')
+        const [spotlight, strip] = await Promise.all([tile(ionWindow, 'Mihai Rusu').boundingBox(), tile(ionWindow, 'Ana Popescu').boundingBox()])
+        expect(spotlight.height).toBeGreaterThan(strip.height * 2)
+        expect(strip.y).toBeLessThan(spotlight.y)
+        // A wide window puts the strip on the right instead.
+        await ionWindow.setViewportSize({ width: 900, height: 500 })
+        await expect(ionWindow.locator('.fi-calls-stage')).toHaveAttribute('data-strip', 'right')
+        await ionWindow.setViewportSize({ width: 460, height: 620 })
+        await expect(ionWindow.locator('.fi-calls-stage')).toHaveAttribute('data-strip', 'top')
+        await mihaiWindow.getByTitle('Stop sharing').click()
+        await expect(ionWindow.locator('.fi-calls-stage')).not.toHaveAttribute('data-spotlight')
+        await expect(tile(ionWindow, 'Mihai Rusu')).not.toHaveAttribute('data-role')
+
+        // Ana reloads her window: both others see her back within seconds, Mihai included.
+        await anaWindow.reload()
+        await expectPeers(anaWindow, ['Ion Caliman', 'Mihai Rusu'])
+        await expectPeers(ionWindow, ['Ana Popescu', 'Mihai Rusu'])
+        await expectPeers(mihaiWindow, ['Ana Popescu', 'Ion Caliman'])
+
+        // Mihai hangs up: his window closes, the other two go on.
+        await Promise.all([
+            mihaiWindow.waitForEvent('close'),
+            mihaiWindow.locator('.fi-calls-window').getByTitle('Hang up').click(),
+        ])
+        await expect(ionWindow.getByRole('status').filter({ hasText: 'Mihai Rusu left the call' })).toBeVisible()
+        await expectPeers(ionWindow, ['Ana Popescu'])
+        await expectPeers(anaWindow, ['Ion Caliman'])
+        await expect.poll(() => state(ionWindow)).toBe('active')
+        await expect.poll(() => state(anaWindow)).toBe('active')
+        await expect.poll(() => state(mihai)).toBe('idle')
+    } finally {
+        await mihai.evaluate((selector) => { const widget = document.querySelector(selector); if (widget) Alpine.$data(widget).hangUp() }, WIDGET).catch(() => {})
+        await mihai.context().close()
+    }
 })

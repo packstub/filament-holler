@@ -24,6 +24,13 @@ return [
     'share_screen' => 'Share screen',
     'stop_sharing' => 'Stop sharing',
     'you' => 'You',
+    'inviting' => 'Ringing :name…',
+    'call_full' => 'This call is full.',
+    'peer_left' => ':name left the call',
+    'peer_declined' => ':name declined',
+    'peer_missed' => ':name did not answer',
+    'peer_dropped' => ':name lost the connection',
+    'and_more' => '+:count',
 
     'ended_declined' => 'Call declined',
     'ended_cancelled' => 'Call cancelled',

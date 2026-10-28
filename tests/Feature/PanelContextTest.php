@@ -41,13 +41,19 @@ it('answers who may call, the ICE servers and video from the plugin, with the co
         ->and($context->iceServers())->toBe(config('packstub-calls.ice_servers'))
         ->and($context->hasVideo())->toBeTrue();
 
-    $plugin->canCall(fn (): bool => false)->iceServers([['urls' => 'turn:t']])->video(false);
+    expect($context->maxParticipants())->toBe(4);
+
+    $plugin->canCall(fn (): bool => false)->iceServers([['urls' => 'turn:t']])->video(false)->maxParticipants(fn (): int => 3);
 
     expect($context->canCall($this->ion, $this->ana))->toBeFalse()
         ->and($context->iceServers())->toBe([['urls' => 'turn:t']])
-        ->and($context->hasVideo())->toBeFalse();
+        ->and($context->hasVideo())->toBeFalse()
+        ->and($context->maxParticipants())->toBe(3);
 
-    $plugin->canCall(null)->iceServers(null)->video(true);
+    $plugin->maxParticipants(1);
+    expect($context->maxParticipants())->toBe(2);
+
+    $plugin->canCall(null)->iceServers(null)->video(true)->maxParticipants(null);
     config()->set('packstub-calls.video', false);
 
     expect($context->hasVideo())->toBeFalse();

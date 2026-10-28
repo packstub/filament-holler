@@ -25,6 +25,7 @@ it('registers the core routes under the panel and runs a call through them', fun
     expect(callsRoute('poll'))->toBe(url('/admin/filament-calls/calls/poll'))
         ->and(callsRoute('store'))->toBe(url('/admin/filament-calls/calls'))
         ->and(callsRoute('signal', ['call' => 7]))->toBe(url('/admin/filament-calls/calls/7/signals'))
+        ->and(callsRoute('invite', ['call' => 7]))->toBe(url('/admin/filament-calls/calls/7/invite'))
         ->and(callsRoute('window'))->toBe(url('/admin/filament-calls/window'));
 
     $this->actingAs($this->ion)
@@ -80,4 +81,30 @@ it('keeps a session description byte for byte through the panel route, trailing 
     $this->actingAs($this->ion)->postJson(callsRoute('signal', ['call' => $call]), ['type' => 'offer', 'payload' => ['sdp' => $sdp]])->assertCreated();
 
     expect($this->actingAs($this->ana)->getJson(callsRoute('poll', ['call' => $call->id, 'tab' => 'tab', 'hold' => 1]))->json('signals.0.payload.sdp'))->toBe($sdp);
+});
+
+it('adds a third person through the panel route, within the plugin\'s limit', function (): void {
+    $mihai = user('Mihai');
+    $this->actingAs($this->ion)->postJson(callsRoute('store'), ['callee' => $this->ana->getKey(), 'tab' => 'win-a'])->assertCreated();
+    $call = Call::query()->latest('id')->firstOrFail();
+    $this->actingAs($this->ana)->postJson(callsRoute('answer', ['call' => $call]), ['tab' => 'ana-1'])->assertOk();
+
+    $this->actingAs($this->ana)->postJson(callsRoute('invite', ['call' => $call]), ['callee' => $mihai->getKey()])
+        ->assertOk()
+        ->assertJsonPath('peers.1.name', 'Mihai')
+        ->assertJsonPath('peers.1.seat', 2)
+        ->assertJsonPath('peers.1.status', 'ringing');
+    $this->actingAs($mihai)->getJson(callsRoute('poll'))->assertJsonPath('incoming.id', $call->id)->assertJsonCount(2, 'incoming.peers');
+
+    // The plugin's limit is the server's.
+    FilamentCallsPlugin::get()->maxParticipants(3);
+    $this->actingAs($this->ion)->postJson(callsRoute('invite', ['call' => $call]), ['callee' => user('Dana')->getKey()])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'A call takes up to 3 people.');
+    FilamentCallsPlugin::get()->maxParticipants(null);
+
+    // Signals can be addressed to one person and say who sent them.
+    $this->actingAs($this->ion)->postJson(callsRoute('signal', ['call' => $call]), ['type' => 'offer', 'payload' => ['sdp' => 'v=0'], 'to' => (string) $this->ana->getKey()])->assertCreated();
+    $this->actingAs($this->ana)->getJson(callsRoute('poll', ['call' => $call->id, 'tab' => 'ana-1', 'hold' => 1]))
+        ->assertJsonPath('signals.0.from', (string) $this->ion->getKey());
 });
