@@ -61,7 +61,14 @@ class PanelContext implements CallContext
             return $this->app->findUser($id);
         }
 
-        $user = Filament::auth()->getProvider()?->retrieveById($id);
+        $provider = Filament::auth()->getProvider();
+
+        // An id that cannot be a key ("abc" for an integer key) never reaches the database: Postgres would throw.
+        if (! AppContext::couldBeKey($provider, $id)) {
+            return null;
+        }
+
+        $user = $provider?->retrieveById($id);
 
         return $user instanceof Authenticatable ? $user : null;
     }
@@ -76,6 +83,7 @@ class PanelContext implements CallContext
             return $this->app->findUsers($ids);
         }
 
+        // Skips ids that cannot be a key, like findUser().
         return AppContext::retrieveMany(Filament::auth()->getProvider(), $ids);
     }
 
