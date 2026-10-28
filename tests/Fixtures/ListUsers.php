@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\Calls\Tests\Fixtures;
+namespace Packstub\FilamentCalls\Tests\Fixtures;
 
 use Filament\Resources\Pages\ListRecords;
 

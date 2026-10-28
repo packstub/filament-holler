@@ -4,8 +4,8 @@ use Filament\Facades\Filament;
 use Packstub\Calls\AppContext;
 use Packstub\Calls\Contracts\CallContext;
 use Packstub\Calls\Facades\Calls;
-use Packstub\Calls\FilamentCallsPlugin;
-use Packstub\Calls\PanelContext;
+use Packstub\FilamentCalls\FilamentCallsPlugin;
+use Packstub\FilamentCalls\PanelContext;
 
 beforeEach(function (): void {
     $this->ion = user('Ion');

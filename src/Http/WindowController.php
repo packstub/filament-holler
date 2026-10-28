@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\Calls\Http;
+namespace Packstub\FilamentCalls\Http;
 
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;

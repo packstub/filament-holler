@@ -1,9 +1,9 @@
 <?php
 
 use Filament\Facades\Filament;
-use Packstub\Calls\Actions\CallAction;
-use Packstub\Calls\FilamentCallsPlugin;
-use Packstub\Calls\Tests\Fixtures\ListUsers;
+use Packstub\FilamentCalls\Actions\CallAction;
+use Packstub\FilamentCalls\FilamentCallsPlugin;
+use Packstub\FilamentCalls\Tests\Fixtures\ListUsers;
 
 use function Pest\Livewire\livewire;
 

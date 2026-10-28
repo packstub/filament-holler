@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\Calls\Actions;
+namespace Packstub\FilamentCalls\Actions;
 
 use Closure;
 use Filament\Actions\Action;

@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\Calls;
+namespace Packstub\FilamentCalls;
 
 use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Css;

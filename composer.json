@@ -67,12 +67,12 @@
     ],
     "autoload": {
         "psr-4": {
-            "Packstub\\Calls\\": "src/"
+            "Packstub\\FilamentCalls\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Packstub\\Calls\\Tests\\": "tests/",
+            "Packstub\\FilamentCalls\\Tests\\": "tests/",
             "Workbench\\App\\": "workbench/app/",
             "Workbench\\Database\\Seeders\\": "workbench/database/seeders/"
         }
@@ -100,7 +100,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Packstub\\Calls\\FilamentCallsServiceProvider"
+                "Packstub\\FilamentCalls\\FilamentCallsServiceProvider"
             ]
         }
     },

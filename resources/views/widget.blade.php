@@ -1,7 +1,7 @@
 @php
     use Filament\Facades\Filament;
     use Filament\Support\Facades\FilamentAsset;
-    use Packstub\Calls\FilamentCallsPlugin;
+    use Packstub\FilamentCalls\FilamentCallsPlugin;
 
     $panel = Filament::getCurrentOrDefaultPanel();
     $plugin = FilamentCallsPlugin::get();

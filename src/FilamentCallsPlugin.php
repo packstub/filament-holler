@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\Calls;
+namespace Packstub\FilamentCalls;
 
 use Closure;
 use Filament\Contracts\Plugin;
@@ -11,7 +11,7 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Route;
 use Packstub\Calls\Facades\Calls;
-use Packstub\Calls\Http\WindowController;
+use Packstub\FilamentCalls\Http\WindowController;
 
 class FilamentCallsPlugin implements Plugin
 {
@@ -138,7 +138,7 @@ class FilamentCallsPlugin implements Plugin
         $panel
             ->authenticatedRoutes(function (): void {
                 // The core's eight signaling routes, behind the panel's auth and CSRF, plus the pop-out page.
-                Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.');
+                Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.', window: false);
                 Route::get('filament-calls/window', WindowController::class)->name('filament-calls.window');
             })
             // Only for a signed-in user: the login page has nobody to call or to be called by.

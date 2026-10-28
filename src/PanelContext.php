@@ -1,11 +1,12 @@
 <?php
 
-namespace Packstub\Calls;
+namespace Packstub\FilamentCalls;
 
 use Filament\Facades\Filament;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Packstub\Calls\AppContext;
 use Packstub\Calls\Contracts\CallContext;
 
 /**

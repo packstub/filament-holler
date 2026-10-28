@@ -1,7 +1,7 @@
 <?php
 
-use Packstub\Calls\Tests\Fixtures\User;
-use Packstub\Calls\Tests\TestCase;
+use Packstub\FilamentCalls\Tests\Fixtures\User;
+use Packstub\FilamentCalls\Tests\TestCase;
 
 pest()->extend(TestCase::class)->in('Feature', 'Unit');
 

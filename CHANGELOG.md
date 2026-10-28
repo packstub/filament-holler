@@ -4,6 +4,8 @@ All notable changes to `packstub/filament-calls` are documented in this file.
 
 ## Unreleased
 
+- The plugin lives in `Packstub\FilamentCalls\`, the core keeps `Packstub\Calls\`: one PSR-4 root per package, so class names cannot collide across the two.
+
 First release. Built on `packstub/calls` (the signaling backend: tables, models, events, config, the `Calls` service and the `CallContext` contract, all of which lived here first) and `@packstub/calls` (the browser engine, moved to its own repo and bundled as `resources/dist/calls-core.js`).
 
 - `FilamentCallsPlugin`: the core's signaling routes under `/{panel}/filament-calls/calls/`, behind the panel's auth middleware, and the call widget on every page (`BODY_END` render hook, kept across `wire:navigate` with `@persist`).

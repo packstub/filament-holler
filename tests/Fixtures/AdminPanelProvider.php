@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\Calls\Tests\Fixtures;
+namespace Packstub\FilamentCalls\Tests\Fixtures;
 
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -15,7 +15,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Packstub\Calls\FilamentCallsPlugin;
+use Packstub\FilamentCalls\FilamentCallsPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {

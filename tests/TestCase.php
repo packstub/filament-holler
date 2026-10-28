@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\Calls\Tests;
+namespace Packstub\FilamentCalls\Tests;
 
 use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
 use BladeUI\Icons\BladeIconsServiceProvider;
@@ -18,9 +18,9 @@ use Illuminate\Support\Facades\Schema;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Packstub\Calls\CallsServiceProvider;
-use Packstub\Calls\FilamentCallsServiceProvider;
-use Packstub\Calls\Tests\Fixtures\AdminPanelProvider;
-use Packstub\Calls\Tests\Fixtures\User;
+use Packstub\FilamentCalls\FilamentCallsServiceProvider;
+use Packstub\FilamentCalls\Tests\Fixtures\AdminPanelProvider;
+use Packstub\FilamentCalls\Tests\Fixtures\User;
 use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
 
 abstract class TestCase extends Orchestra

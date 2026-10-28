@@ -3,10 +3,10 @@
 use Illuminate\Support\Facades\Event;
 use Packstub\Calls\Events\CallEnded;
 use Packstub\Calls\Events\CallStarted;
-use Packstub\Calls\FilamentCallsPlugin;
 use Packstub\Calls\Models\Call;
 use Packstub\Calls\Models\CallSignal;
-use Packstub\Calls\Tests\Fixtures\User;
+use Packstub\FilamentCalls\FilamentCallsPlugin;
+use Packstub\FilamentCalls\Tests\Fixtures\User;
 
 /*
  * The signaling logic itself is tested in packstub/calls. These tests cover what

@@ -16,7 +16,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Packstub\Calls\FilamentCallsPlugin;
+use Packstub\FilamentCalls\FilamentCallsPlugin;
 use Workbench\App\Filament\Resources\Users\UserResource;
 
 class AdminPanelProvider extends PanelProvider

@@ -4,8 +4,8 @@ Free (MIT) Filament v4/v5 plugin: audio/video/screen-share calls between panel u
 `maxParticipants()` (4), peer to peer over WebRTC (a mesh). The panel side of `packstub/calls` (the sibling repo, `plugins/calls`), which owns the signaling backend:
 tables, models, events, config (`packstub-calls`, `CALLS_*` env), the `Calls` service and facade, the
 `CallContext` contract and `CallsController`. The browser engine is `@packstub/calls` (`plugins/calls-js`),
-bundled here as `resources/dist/calls-core.js`. The two PHP packages share the `Packstub\Calls\` namespace
-(Composer merges the PSR-4 directories), so class names must not collide across them. Split 2026-10-23;
+bundled here as `resources/dist/calls-core.js`. This package lives in `Packstub\FilamentCalls\`; the core keeps `Packstub\Calls\` (one PSR-4 root per
+package, so names never collide across them). Split 2026-10-23;
 private repo, untagged. Until `packstub/calls` is on Packagist, `composer.json` takes it from the path repo
 `../calls` (pinned as 1.0.0): remove that `repositories` entry before the first tag.
 

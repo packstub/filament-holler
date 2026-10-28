@@ -1,8 +1,8 @@
 <?php
 
 use Filament\Facades\Filament;
-use Packstub\Calls\FilamentCallsPlugin;
 use Packstub\Calls\Models\Call;
+use Packstub\FilamentCalls\FilamentCallsPlugin;
 
 beforeEach(function (): void {
     $this->ion = user('Ion');

@@ -27,7 +27,7 @@ php artisan filament:assets
 Register the plugin in your panel:
 
 ```php
-use Packstub\Calls\FilamentCallsPlugin;
+use Packstub\FilamentCalls\FilamentCallsPlugin;
 
 public function panel(Panel $panel): Panel
 {
@@ -46,7 +46,7 @@ That adds the widget to every page of the panel and the signaling routes under `
 Put a `CallAction` where the record is a user (an `Authenticatable`):
 
 ```php
-use Packstub\Calls\Actions\CallAction;
+use Packstub\FilamentCalls\Actions\CallAction;
 
 // A table of users
 ->recordActions([
