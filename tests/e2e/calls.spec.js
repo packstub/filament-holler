@@ -14,14 +14,17 @@ async function signIn(context, email) {
     const page = await context.newPage()
     await page.goto('/admin/login', { waitUntil: 'networkidle' })
 
-    // A submit that lands before Livewire has bound the fields loses them: try again.
+    // A submit that lands before Livewire has bound the fields loses them: try again. Filament allows
+    // five sign-ins a minute from one address, and the suite signs in three people per test: wait it out.
     for (let attempt = 1; ; attempt++) {
         await page.locator('input[type=email]').fill(email)
         await page.locator('input[type=password]').fill('password')
         await page.locator('input[type=password]').press('Enter')
         const signedIn = await page.waitForURL('**/admin', { timeout: 10_000 }).then(() => true, () => false)
         if (signedIn) break
-        if (attempt === 3) throw new Error(`Could not sign in as ${email}`)
+        if (attempt === 4) throw new Error(`Could not sign in as ${email}`)
+        const throttled = (await page.locator('body').innerText()).match(/try again in (\d+) seconds/i)
+        if (throttled) await page.waitForTimeout((Number(throttled[1]) + 1) * 1000)
     }
 
     await page.goto('/admin/users')
@@ -61,7 +64,7 @@ async function answer(ana) {
     await expect(ana.getByRole('alertdialog')).toContainText('Ion Caliman', { timeout: 30_000 })
     const [window] = await Promise.all([
         ana.context().waitForEvent('page'),
-        ana.getByRole('alertdialog').getByTitle('Accept').click(),
+        ana.getByRole('alertdialog').getByRole('button', { name: 'Accept', exact: true }).click(),
     ])
 
     return window
@@ -107,22 +110,22 @@ test('a call between two people in their pop-outs: connected, reconnected after 
     await expectActive(anaWindow)
 
     // Ana mutes and shares her screen: Ion's window says so.
-    await anaWindow.getByTitle('Mute').click()
+    await anaWindow.getByRole('button', { name: 'Mute', exact: true }).click()
     await expect(ionWindow.locator('[data-peer=muted]')).toBeVisible()
-    await anaWindow.getByTitle('Share screen').click()
+    await anaWindow.getByRole('button', { name: 'Share screen', exact: true }).click()
     await expect(ionWindow.locator('[data-peer=sharing]')).toBeVisible()
     // Her screen takes Ion's stage whole; with nobody else on the call there is no strip of cameras.
     await expect(ionWindow.locator('.fi-calls-stage')).toHaveAttribute('data-spotlight', /.+/)
     await expect(ionWindow.locator('.fi-calls-stage')).toHaveAttribute('data-strip', 'none')
     await expect(ionWindow.locator('.fi-calls-tile[data-role=spotlight] video')).toHaveCSS('object-fit', 'contain')
-    await anaWindow.getByTitle('Stop sharing').click()
+    await anaWindow.getByRole('button', { name: 'Stop sharing', exact: true }).click()
     await expect(ionWindow.locator('[data-peer=sharing]')).toBeHidden()
     await expect(ionWindow.locator('.fi-calls-stage')).not.toHaveAttribute('data-spotlight')
-    await anaWindow.getByTitle('Unmute').click()
+    await anaWindow.getByRole('button', { name: 'Unmute', exact: true }).click()
     await expect(ionWindow.locator('[data-peer=muted]')).toBeHidden()
 
     // Ana turns her camera off: Ion sees her avatar instead of a black frame.
-    await anaWindow.getByTitle('Turn camera off').click()
+    await anaWindow.getByRole('button', { name: 'Turn camera off', exact: true }).click()
     await expect(ionWindow.locator('[data-peer=camera-off]')).toBeVisible()
     await expect(ionWindow.locator('.fi-calls-placeholder')).toBeVisible()
 
@@ -130,7 +133,7 @@ test('a call between two people in their pop-outs: connected, reconnected after 
     await Promise.all([
         ionWindow.waitForEvent('close'),
         anaWindow.waitForEvent('close'),
-        ionWindow.locator('.fi-calls-window').getByTitle('Hang up').click(),
+        ionWindow.locator('.fi-calls-window').getByRole('button', { name: 'Hang up', exact: true }).click(),
     ])
     await expect(ana.getByRole('status').filter({ hasText: 'Call ended' })).toBeVisible()
     await expect.poll(() => state(ion)).toBe('idle')
@@ -153,7 +156,7 @@ test('the main tab continues the call itself when its pop-out closes, and the ot
     // Ana hangs up from the page.
     await Promise.all([
         ionWindow.waitForEvent('close'),
-        ana.locator('.fi-calls-window').getByTitle('Hang up').click(),
+        ana.locator('.fi-calls-window').getByRole('button', { name: 'Hang up', exact: true }).click(),
     ])
     await expect.poll(() => state(ana)).toBe('idle')
 })
@@ -170,13 +173,13 @@ test('the call stays on the page when the browser blocks the pop-out', async () 
     expect(ion.context().pages()).toHaveLength(1)
 
     await expect(ana.getByRole('alertdialog')).toContainText('Ion Caliman', { timeout: 30_000 })
-    await ana.getByRole('alertdialog').getByTitle('Accept').click()
+    await ana.getByRole('alertdialog').getByRole('button', { name: 'Accept', exact: true }).click()
     await expect(ana.getByRole('status').filter({ hasText: 'Pop-ups are blocked' })).toBeVisible()
     await expectActive(ion)
     await expectActive(ana)
     expect(ana.context().pages()).toHaveLength(1)
 
-    await ana.locator('.fi-calls-window').getByTitle('Hang up').click()
+    await ana.locator('.fi-calls-window').getByRole('button', { name: 'Hang up', exact: true }).click()
     await expect.poll(() => state(ion)).toBe('idle')
     await expect(ion.getByRole('status').filter({ hasText: 'Call ended' })).toBeVisible()
 })
@@ -210,7 +213,7 @@ test('three people on one call: the third is added from the Team page, everyone 
 
         const [mihaiWindow] = await Promise.all([
             mihai.context().waitForEvent('page'),
-            mihai.getByRole('alertdialog').getByTitle('Accept').click(),
+            mihai.getByRole('alertdialog').getByRole('button', { name: 'Accept', exact: true }).click(),
         ])
 
         // Everyone has a tile for each of the other two, with live audio and video.
@@ -222,14 +225,14 @@ test('three people on one call: the third is added from the Team page, everyone 
         await expect(ionWindow.locator('.fi-calls-header .fi-calls-name')).toHaveText('Ana Popescu, Mihai Rusu')
 
         // Mihai mutes: his tile says so in the other two windows, and nobody else's does.
-        await mihaiWindow.getByTitle('Mute').click()
+        await mihaiWindow.getByRole('button', { name: 'Mute', exact: true }).click()
         await expect(tile(ionWindow, 'Mihai Rusu').locator('[data-peer=muted]')).toBeVisible()
         await expect(tile(ionWindow, 'Ana Popescu').locator('[data-peer=muted]')).toBeHidden()
         await expect(tile(anaWindow, 'Mihai Rusu').locator('[data-peer=muted]')).toBeVisible()
 
         // Mihai shares his screen: in the other two windows (460 wide, taller than wide) his tile takes
         // the stage and the other camera moves into a strip on top; the look goes back once he stops.
-        await mihaiWindow.getByTitle('Share screen').click()
+        await mihaiWindow.getByRole('button', { name: 'Share screen', exact: true }).click()
         await expect(tile(ionWindow, 'Mihai Rusu')).toHaveAttribute('data-role', 'spotlight')
         await expect(tile(ionWindow, 'Ana Popescu')).toHaveAttribute('data-role', 'strip')
         await expect(ionWindow.locator('.fi-calls-stage')).toHaveAttribute('data-strip', 'top')
@@ -242,7 +245,7 @@ test('three people on one call: the third is added from the Team page, everyone 
         await expect(ionWindow.locator('.fi-calls-stage')).toHaveAttribute('data-strip', 'right')
         await ionWindow.setViewportSize({ width: 460, height: 620 })
         await expect(ionWindow.locator('.fi-calls-stage')).toHaveAttribute('data-strip', 'top')
-        await mihaiWindow.getByTitle('Stop sharing').click()
+        await mihaiWindow.getByRole('button', { name: 'Stop sharing', exact: true }).click()
         await expect(ionWindow.locator('.fi-calls-stage')).not.toHaveAttribute('data-spotlight')
         await expect(tile(ionWindow, 'Mihai Rusu')).not.toHaveAttribute('data-role')
 
@@ -255,7 +258,7 @@ test('three people on one call: the third is added from the Team page, everyone 
         // Mihai hangs up: his window closes, the other two go on.
         await Promise.all([
             mihaiWindow.waitForEvent('close'),
-            mihaiWindow.locator('.fi-calls-window').getByTitle('Hang up').click(),
+            mihaiWindow.locator('.fi-calls-window').getByRole('button', { name: 'Hang up', exact: true }).click(),
         ])
         await expect(ionWindow.getByRole('status').filter({ hasText: 'Mihai Rusu left the call' })).toBeVisible()
         await expectPeers(ionWindow, ['Ana Popescu'])
@@ -267,4 +270,37 @@ test('three people on one call: the third is added from the Team page, everyone 
         await mihai.evaluate((selector) => { const widget = document.querySelector(selector); if (widget) Alpine.$data(widget).hangUp() }, WIDGET).catch(() => {})
         await mihai.context().close()
     }
+})
+
+test('a pop-out link alone neither rings anyone nor answers a call', async () => {
+    // Ana's id, from the Call button on Ion's Team page.
+    const handler = await ion.getByRole('row', { name: /Ana Popescu/ }).getByRole('button', { name: 'Call' }).evaluate((button) => button.outerHTML)
+    const anaId = handler.match(/user: '([^']+)'/)[1]
+
+    // Ion opens a window link that names Ana: it only polls, nobody rings.
+    const link = await ion.context().newPage()
+    await link.goto(`/admin/filament-calls/window?callee=${anaId}`)
+    await expect(link.locator(WIDGET)).toBeAttached()
+    await link.waitForTimeout(3000)
+    expect(await state(link)).toBe('idle')
+    await expect(ana.getByRole('alertdialog')).toBeHidden()
+    await link.close()
+
+    // Ion rings Ana for real; a link to that call on Ana's side shows the call with Accept, it does not answer.
+    const ionWindow = await ring(ion)
+    await expect.poll(() => state(ionWindow)).toBe('calling')
+    await expect.poll(() => new URL(ionWindow.url()).searchParams.get('call')).toMatch(/^\d+$/)
+    const callId = new URL(ionWindow.url()).searchParams.get('call')
+
+    const anaLink = await ana.context().newPage()
+    await anaLink.goto(`/admin/filament-calls/window?call=${callId}`)
+    await expect(anaLink.getByRole('alertdialog')).toContainText('Ion Caliman', { timeout: 30_000 })
+    await anaLink.waitForTimeout(2000)
+    expect(await state(anaLink)).toBe('ringing')
+    expect(await state(ionWindow)).toBe('calling')
+
+    // A click on Accept is what answers.
+    await anaLink.getByRole('alertdialog').getByRole('button', { name: 'Accept', exact: true }).click()
+    await expectActive(anaLink)
+    await expectActive(ionWindow)
 })

@@ -17,11 +17,13 @@ it('serves the pop-out page for a call of mine, or for someone to ring, and refu
         ->assertOk()
         ->assertSee('fi-calls-popup', escape: false)
         ->assertSee('\\u0022popup\\u0022:true', escape: false)
-        ->assertSee('\\u0022autoStart\\u0022:{\\u0022call\\u0022:'.$call->id.'}', escape: false);
+        // The page does not tell the widget to answer: it reads ?call= itself and answers only
+        // with the one-time token the opening page left in localStorage.
+        ->assertDontSee('autoStart');
 
     $this->actingAs($this->ion)->get(callsRoute('window', ['callee' => $this->ana->getKey()]))
         ->assertOk()
-        ->assertSee('\\u0022autoStart\\u0022:{\\u0022callee\\u0022:\\u0022'.$this->ana->getKey().'\\u0022}', escape: false);
+        ->assertDontSee('autoStart');
 
     $this->actingAs(user('Mihai'))->get(callsRoute('window', ['call' => $call->id]))->assertForbidden();
 });
