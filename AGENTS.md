@@ -33,8 +33,14 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
 ## Layout
 
 - `resources/dist/calls-core.js`: a copy of `@packstub/calls` (`plugins/calls-js`, where the engine's own tests live). Never edit it here.
-- `resources/dist/calls.js`: the Alpine component (`packstubCalls`), imports `../calls-core.js` relative to its
-  published URL (Alpine components land in `components/`; the core is a `Js` asset `loadedOnRequest()` so it is published but not put in `<head>`).
+- `resources/dist/calls.js`: the Alpine component (`packstubCalls`), imports `../calls-core.js` with a top-level
+  `await import()` relative to its published URL and with its own `?v=` query (Alpine components land in `components/`;
+  the core is a `Js` asset `loadedOnRequest()` so it is published but not put in `<head>`). Builds `HttpSignaling`
+  (`kind: 'call'`, the `ice` route) and `CallClient` (`iceServers` a function asking `signaling.configuration()` per call),
+  firing `filament-calls:configure` with the options first. `show()` sends a Filament notification (`window.FilamentNotification`,
+  when `.fi-no` is on the page) and falls back to the notice card. Pop-out trust: `openWindow()` writes a one-time
+  `packstub-calls:open:<token>` to localStorage and adds `&open=<token>`; `readOpenedFor()` in the pop-out rings or
+  answers only with a matching token under 60 s old (same scheme as calls-js `widget.js`).
   Draws state, plays the ring, keeps `peers` (the engine's roster plus `hasVideo`) for one tile per other participant
   (`template x-for`, `data-peer-id`, `x-effect` attaches the stream, badges `data-peer="muted|sharing|camera-off"`,
   the name with "Calling…" / "Connecting…"). `start(user)` while on a call (or `elsewhere`, the pop-out running it)
@@ -43,7 +49,11 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
   back (`client.takeOver()`, which looks at the server first) at once when it knows its pop-out closed, else after
   `TAKE_BACK_DELAY` (3 s, so a reloading pop-out keeps its side). `resources/dist/calls.css`: the widget.
 - `resources/views/widget.blade.php`: rendered by the plugin's `BODY_END` render hook inside `@persist`; passes
-  routes (`__ID__` placeholder for the call id), CSRF token, ICE servers, poll intervals and labels to Alpine.
+  routes (`__ID__` placeholder for the call id, `ice` included), CSRF token, `kind`, `iceTransportPolicy`, poll intervals and labels
+  to Alpine (no ICE servers: they are fetched per call). Drawn with `<x-filament::button>` (round via `fi-calls-round`, toggles as
+  two `aria-pressed` buttons switched with `x-show`), `<x-filament::avatar>`, `<x-filament::icon>`, each icon with an alias from
+  `src/View/FilamentCallsIconAlias.php`. `calls.css`: cards in the panel theme (white / gray-900), only the stage dark; Filament
+  CSS variables only, no hex; logical properties.
 - `src/FilamentCallsPlugin.php`: `canCall()`, `iceServers()`, `video()`, `maxParticipants()` (never below 2), `popOut()` (null = pop out unless the
   panel has SPA mode); registers `Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.')`
   and the window route inside `$panel->authenticatedRoutes()` (so they sit behind the panel's auth and CSRF),
@@ -56,7 +66,7 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
   connection on `reset` as the polite side and answers. Signals carry `session`; a mismatch is dropped.
   `pagehide` sends the `leave` beacon (FormData with `_token`, so the panel's CSRF check passes).
 - `src/Http/WindowController.php` + `resources/views/window.blade.php`: the pop-out, Filament's base layout
-  with an empty body (the widget arrives through the `BODY_END` hook and reads `?call=` / `?callee=`).
+  with an empty body (the widget arrives through the `BODY_END` hook and reads `?call=` / `?callee=` / `?open=` in JS).
 - `src/Actions/CallAction.php`: `alpineClickHandler` dispatching `filament-calls-call {user}` on `window`;
   visible only for another `Authenticatable`.
 - `resources/lang/en/calls.php`: UI labels only (`filament-calls::calls.*`); server messages are the core's
@@ -66,7 +76,7 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
   itself is tested in `packstub/calls`; run that suite too after a change there. `tests/e2e/calls.spec.js`
   (Playwright, `composer test:e2e`) is the only test that runs the real thing: two browser contexts, the pop-outs,
   WebRTC over loopback, a reload mid-call, mute and screen share seen by the other side, the main tab taking the
-  call back when its pop-out closes, the page itself when `window.open` is blocked, and a three-person call (Mihai
+  call back when its pop-out closes, the page itself when `window.open` is blocked, a pop-out link without the token (neither rings nor answers), and a three-person call (Mihai
   added from Ion's Team page while the pop-out runs the call, tiles with live tracks everywhere, a mute seen on
   the right tile, Ana's reload, Mihai hanging up while the call goes on). Run it after a change in
   any of the three repos; the e2e job in `tests.yml` runs it too.

@@ -5,6 +5,22 @@ All notable changes to `packstub/filament-calls` are documented in this file.
 ## Unreleased
 
 - The plugin lives in `Packstub\FilamentCalls\`, the core keeps `Packstub\Calls\`: one PSR-4 root per package, so class names cannot collide across the two.
+- A pop-out link alone no longer rings anyone or answers a call: the page that opens the window leaves a one-time token in `localStorage` (60 s, read once) and the pop-out acts only with it. Without it, `?call=` shows the call with Accept (or continues one you are on) and `?callee=` only polls; the Blade view no longer passes `autoStart`.
+- A pop-out that rang someone puts the call's id in its address as soon as the call exists (it used to wait for the next state change), so a reload continues the call.
+- ICE servers are asked from the core's `ice` route each time a call starts instead of being written into every page: closures with short-lived TURN credentials run per call and the credentials stay out of the HTML. `CALLS_ICE_TRANSPORT_POLICY=relay` reaches the browsers.
+- The widget polls only for calls of kind `call`, so another package's calls on the same tables (Session Replay's assist) never ring in it.
+- Errors: a 401 or 419 (signed out, session expired) stops polling quietly; only a refusal the server explains (a 4xx with a `reason`) is shown, never a raw 500. A busy callee ends the attempt with "Busy" from the engine.
+- The engine (`calls-core.js`) is imported with the component's own `?v=` version, so a release never pairs a new widget with a cached old engine.
+- `filament-calls:configure` event on `window`, fired with the engine's options just before the engine is built: a script can set `topology` (an SFU), `reconnectTimeout` and the rest.
+- Leaving the page takes the call down properly: `destroy()` closes the camera and the connections, the ring's audio context and the pop-out's close timer.
+- The chip's clock counts from the answer, not from the ringing.
+- `filament-calls-sharing` fires only when someone's screen starts or stops, not on every mute.
+- A `$` in someone's name stays as it is in notices ("Ringing :name…", "+:count").
+- The widget looks like the rest of the panel: Filament buttons, avatars and notifications, cards in the panel's light or dark theme with its colours (only the video stays dark), toggles as Filament's pressed buttons with an icon per state (the mute button no longer looks the same muted and unmuted), tooltips, right-to-left layouts, `aria-labelledby` on the incoming call.
+- Icon aliases (`FilamentCallsIconAlias`, `filament-calls::hang-up` and eleven more) for `FilamentIcon::register()`.
+- `PanelContext::findUser()` skips an id that cannot be a key of the panel's users (`abc` for an integer key) before the database, like the core, so Postgres never sees it.
+- Engine updated from `@packstub/calls` (request timeouts, hidden-tab poll back-off, `ended 'missed'` when a call stops ringing as you answer, `iceTransportPolicy`, `destroy()`).
+- The end-to-end suite checks that pop-out links neither ring nor answer, and waits out Filament's sign-in throttle.
 
 First release. Built on `packstub/calls` (the signaling backend: tables, models, events, config, the `Calls` service and the `CallContext` contract, all of which lived here first) and `@packstub/calls` (the browser engine, moved to its own repo and bundled as `resources/dist/calls-core.js`).
 
