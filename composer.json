@@ -1,6 +1,6 @@
 {
     "name": "packstub/filament-calls",
-    "description": "Audio, video and screen-share calls inside a Filament panel, 1-on-1 or in small groups, peer to peer over WebRTC: the media goes browser to browser, the panel only handles who calls whom. Polling signaling, no websockets. The panel side of packstub/calls.",
+    "description": "Audio, video and screen-share calls inside a Filament panel, 1-on-1 or in groups of up to four, peer to peer over WebRTC: a CallAction for any user record and a call widget on every page. The media goes browser to browser; polling signaling, no websockets. The panel side of packstub/calls.",
     "keywords": [
         "packstub",
         "laravel",
@@ -12,6 +12,7 @@
         "video-call",
         "voice-call",
         "screen-share",
+        "group-call",
         "peer-to-peer",
         "livewire"
     ],

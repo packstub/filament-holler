@@ -73,7 +73,7 @@ FilamentCallsPlugin::make()
     ->canCall(fn (User $caller, User $callee): bool => $caller->team_id === $callee->team_id)
 ```
 
-A closure replaces the tenant rule; take `bool $sharesTenant` to keep it and add your own (`fn (User $callee, bool $sharesTenant): bool => $sharesTenant && $callee->is_active`). Someone who cannot open the panel is never callable, whatever the closure says. The check runs on the server when a call starts, and the Call button only shows for people the signed-in user may call. In a table of Call buttons on a panel with tenancy, eager-load the users' tenants (`->modifyQueryUsing(fn ($query) => $query->with('teams'))`).
+A closure replaces the tenant rule; take `bool $sharesTenant` to keep it and add your own (`fn (User $callee, bool $sharesTenant): bool => $sharesTenant && $callee->is_active`). `FilamentCallsPlugin::sharesTenant($caller, $callee, $panel)` is the same check, for code of your own; the caller's tenants are read once per request, and `FilamentCallsPlugin::flushTenantCache()` forgets them after you change someone's tenants mid-request. Someone who cannot open the panel is never callable, whatever the closure says. The check runs on the server when a call starts, and the Call button only shows for people the signed-in user may call. In a table of Call buttons on a panel with tenancy, eager-load the users' tenants (`->modifyQueryUsing(fn ($query) => $query->with('teams'))`).
 
 ### Group calls
 
@@ -149,6 +149,11 @@ window.addEventListener('filament-calls-configure', ({ detail: options }) => {
 
 Register it before the widget loads, for example in a script added through `FilamentAsset::register()` or a `HEAD_END` render hook.
 
+### Page events
+
+- `filament-calls-call` on `window` with `{ user }` rings that user, or adds them to the call you are on: it is what `CallAction` dispatches, so any button or script can do the same (`$dispatch('filament-calls-call', { user: 5 })` in Alpine).
+- `filament-calls-sharing` bubbles from the widget with `{ peer, sharing, spotlight }` when someone's screen starts or stops taking the stage, for anything else on the page that wants to react.
+
 ### Icons
 
 Every icon in the widget has an alias, so a panel can swap it with Filament's `FilamentIcon::register()`; the aliases are constants on `Packstub\FilamentCalls\View\FilamentCallsIconAlias`:
@@ -175,9 +180,21 @@ FilamentIcon::register([
 
 The widget is drawn with Filament's own buttons and avatars and follows the panel's theme (light, dark, its colours); only the video stays dark. Its messages ("Call declined", "Ringing Ana…") are Filament notifications.
 
-### Polling
+### Texts
+
+The widget's labels are in `lang/vendor/filament-calls/en/calls.php` once you publish them (`php artisan vendor:publish --tag=filament-calls-translations`); the server's own messages ("This person is on another call.") come from `packstub/calls` (`--tag=calls-translations`).
+
+### Polling and configuration
 
 Every open panel tab asks the server for incoming calls every 5 seconds and, during a call, for signals every second; that poll is also the heartbeat that tells the other side you are still there. Tune it in `config/packstub-calls.php` (`CALLS_POLL_IDLE`, `CALLS_POLL_ACTIVE`, in milliseconds), `CALLS_RING_TIMEOUT` (seconds before a call is marked missed, default 45) and `CALLS_RECONNECT_TIMEOUT` (seconds a side may be away before the call ends as lost, default 15).
+
+The rest of the config belongs to `packstub/calls` and applies here as documented [in its README](https://github.com/packstub/calls#polling-and-timeouts): `CALLS_MAX_SIGNAL_KB`, `CALLS_DB_CONNECTION` (the central connection under a database per tenant) and `CALLS_ICE_TRANSPORT_POLICY`. `CALLS_VIDEO=false` makes every call a voice call; `CALLS_MAX_PARTICIPANTS` and `CALLS_POP_OUT` are defaults that `maxParticipants()` and `popOut()` override (`CALLS_POP_OUT` only matters on panels without SPA mode). Inside a panel the panel's guard is used, not `guard`, and users of two panels on different guards never ring each other.
+
+Schedule the core's cleanup, which ends calls everybody walked away from and deletes ended ones older than `CALLS_PRUNE_AFTER_DAYS` (90):
+
+```php
+Schedule::command('calls:prune')->daily();
+```
 
 ### Events and the call log
 
@@ -203,7 +220,8 @@ The panel is a thin layer. [`packstub/calls`](https://github.com/packstub/calls)
 
 ```bash
 composer test
-composer serve   # workbench panel with a Team page; ion@/ana@/mihai@example.com, password "password"
+composer test:e2e  # Playwright: real calls between headless Chromium windows (npx playwright install chromium once)
+composer serve     # workbench panel with a Team page; ion@/ana@/mihai@example.com, password "password"
 ```
 
 Open the workbench twice, as two different people, on two hostnames (`localhost` and `127.0.0.1`) to try a call on one machine.

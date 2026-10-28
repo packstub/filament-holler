@@ -7,7 +7,7 @@ tables, models, events, config (`packstub-calls`, `CALLS_*` env), the `Calls` se
 bundled here as `resources/dist/calls-core.js`. This package lives in `Packstub\FilamentCalls\`; the core keeps `Packstub\Calls\` (one PSR-4 root per
 package, so names never collide across them). Split 2026-10-23;
 private repo, untagged. Until `packstub/calls` is on Packagist, `composer.json` takes it from the path repo
-`../calls` (pinned as 1.0.0): remove that `repositories` entry before the first tag.
+`../calls` (pinned as 1.0.0) until the first release; see [Release checklist](#release-checklist).
 
 ## Commands
 
@@ -90,6 +90,16 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
   the signaling logic belong to their own repos.
 - Route names (`filament.{panel}.filament-calls.*`), the `CallContext` methods and the JSON shapes come from the
   core; they must not change inside a major.
+
+## Release checklist
+
+The three repos go out together as 1.0.0, in this order; the human does these steps (agents never tag, publish or change visibility). Each CHANGELOG keeps `## Unreleased` until then: rename it to `## 1.0.0 — <date>` in the release commit, and the tag's release workflow takes the notes from it.
+
+1. **`packstub/calls-js`**: make the repo public; set `"version": "1.0.0"` in `package.json`; `npm pack --dry-run` (expect `src/index.js`, `src/widget.js`, `src/widget.css`, README, LICENSE, CHANGELOG); `npm publish` (`publishConfig.access` is public); tag `v1.0.0`.
+2. **`packstub/calls`**: make the repo public; in `package.json` change the dev dependency `github:packstub/calls-js` to `^1.0`, `npm install`, `npm run build:js` and check that `resources/dist` did not change (it must equal calls-js `src/` at the tag); tag `v1.0.0`; submit the repo to Packagist and check that the GitHub hook updates it.
+3. **`packstub/filament-calls`** (this repo): remove the `repositories` path entry to `../calls` from `composer.json`; keep `"packstub/calls": "^1.0"` and run `composer update packstub/calls` so the lock takes it from Packagist (`vendor/packstub/calls` stops being a symlink); in `package.json` change `github:packstub/calls-js` to `^1.0`, `npm install`, `npm run build:js` and check that `resources/dist/calls-core.js` did not change; `composer test` and `composer test:e2e`; make the repo public; tag `v1.0.0`; submit to Packagist.
+4. Until steps 2 and 3 are done, this repo's CI cannot install: the path repo `../calls` does not exist on a runner and `npm ci` cannot fetch the private `github:packstub/calls-js`. Test locally (Pest on Filament 4 and 5, the e2e suite) before tagging.
+5. Afterwards: update the three rows in the workspace `CLAUDE.md` (private, untagged, path repo), set `"stats": true` in `workspace/projects.json` and run `workspace/register-stats.sh`, the store listing and docs (skill `filament-plugin-listing`), and the filamentphp.com listing for this plugin (named **Calls** there).
 
 ## Not in the MVP (ideas)
 
