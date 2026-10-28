@@ -66,14 +66,14 @@ The button hides itself for the signed-in user. Clicking it rings the other pers
 
 ### Who may call whom
 
-By default any two users of the panel can call each other. Narrow it:
+By default any two users who can open the panel can call each other, and on a panel with tenancy only two who share a tenant (the call routes carry no tenant, so the plugin compares the two people's tenants). Narrow it:
 
 ```php
 FilamentCallsPlugin::make()
     ->canCall(fn (User $caller, User $callee): bool => $caller->team_id === $callee->team_id)
 ```
 
-The check runs on the server when a call starts, not only when the button renders.
+A closure replaces the tenant rule; take `bool $sharesTenant` to keep it and add your own (`fn (User $callee, bool $sharesTenant): bool => $sharesTenant && $callee->is_active`). Someone who cannot open the panel is never callable, whatever the closure says. The check runs on the server when a call starts, and the Call button only shows for people the signed-in user may call. In a table of Call buttons on a panel with tenancy, eager-load the users' tenants (`->modifyQueryUsing(fn ($query) => $query->with('teams'))`).
 
 ### Group calls
 
@@ -83,7 +83,7 @@ While on a call, clicking Call on another person adds them to it: they get the u
 FilamentCallsPlugin::make()->maxParticipants(3)   // or CALLS_MAX_PARTICIPANTS in .env
 ```
 
-Someone who hangs up leaves the call for the others (the rest see "… left the call"); the call ends once one person is left. To go beyond four, give the engine a `topology` for an SFU in place of the mesh through the `filament-calls:configure` event (see [Engine options](#engine-options)); the interface is in [`@packstub/calls`](https://github.com/packstub/calls-js).
+Someone who hangs up leaves the call for the others (the rest see "… left the call"); the call ends once one person is left. To go beyond four, give the engine a `topology` for an SFU in place of the mesh through the `filament-calls-configure` event (see [Engine options](#engine-options)); the interface is in [`@packstub/calls`](https://github.com/packstub/calls-js).
 
 ### Voice calls
 
@@ -138,10 +138,10 @@ A TURN relay forwards packets it cannot decrypt (WebRTC media is DTLS-SRTP end t
 
 ### Engine options
 
-The widget builds the engine (`CallClient` from [`@packstub/calls`](https://github.com/packstub/calls-js)) once per page. Just before, it fires `filament-calls:configure` on `window` with the options object as `detail`: whatever a script changes there is what the engine gets.
+The widget builds the engine (`CallClient` from [`@packstub/calls`](https://github.com/packstub/calls-js)) once per page. Just before, it fires `filament-calls-configure` on `window` with the options object as `detail`: whatever a script changes there is what the engine gets.
 
 ```js
-window.addEventListener('filament-calls:configure', ({ detail: options }) => {
+window.addEventListener('filament-calls-configure', ({ detail: options }) => {
     options.topology = (call) => new MySfuTopology(call)   // an SFU instead of the mesh
     options.reconnectTimeout = 30000
 })
@@ -197,7 +197,7 @@ Event::listen(CallEnded::class, function (CallEnded $event) {
 
 ## Outside Filament
 
-The panel is a thin layer. [`packstub/calls`](https://github.com/packstub/calls) is the server side on its own (`Calls::routes()`, the `Calls` service, a `CallContext` for who is who and who may call whom) and [`@packstub/calls`](https://github.com/packstub/calls-js) the browser engine (`CallClient`, `HttpSignaling`), for a Laravel app without Filament or another backend speaking the same eight endpoints. This plugin binds a `PanelContext` that answers from the current panel (its guard, `getUserName()` / `getUserAvatarUrl()`, the plugin's `canCall()`, `iceServers()`, `video()` and `maxParticipants()`), registers the routes under the panel, and ships the widget, the `CallAction` and the pop-out window.
+The panel is a thin layer. [`packstub/calls`](https://github.com/packstub/calls) is the server side on its own (`Calls::routes()`, the `Calls` service, a `CallContext` for who is who and who may call whom) and [`@packstub/calls`](https://github.com/packstub/calls-js) the browser engine (`CallClient`, `HttpSignaling`), for a Laravel app without Filament or another backend speaking the same nine endpoints. This plugin binds a `PanelContext` that answers from the current panel (its guard, `getUserName()` / `getUserAvatarUrl()`, the plugin's `canCall()`, `iceServers()`, `video()` and `maxParticipants()`), registers the routes under the panel, and ships the widget, the `CallAction` and the pop-out window.
 
 ## Testing
 

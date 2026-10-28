@@ -129,10 +129,15 @@ class FilamentCallsPlugin implements Plugin
         }
 
         if (! $this->canCall) {
-            return ! $panel?->hasTenancy() || static::shareTenant($caller, $callee, $panel);
+            return ! $panel?->hasTenancy() || static::sharesTenant($caller, $callee, $panel);
         }
 
-        return (bool) $this->evaluate($this->canCall, ['caller' => $caller, 'callee' => $callee]);
+        // `bool $sharesTenant` (worked out only when asked for) keeps the default's tenant rule in a closure.
+        return (bool) $this->evaluate($this->canCall, [
+            'caller' => $caller,
+            'callee' => $callee,
+            'sharesTenant' => fn (): bool => ! $panel?->hasTenancy() || static::sharesTenant($caller, $callee, $panel),
+        ]);
     }
 
     protected static function canAccess(Authenticatable $user, Panel $panel): bool
@@ -144,16 +149,37 @@ class FilamentCallsPlugin implements Plugin
         return app()->environment('local');
     }
 
-    /** The routes carry no tenant, so two users of a panel with tenancy must have one in common. */
-    protected static function shareTenant(Authenticatable $caller, Authenticatable $callee, Panel $panel): bool
+    /** @var array<string, array<int, string>> the caller's tenant keys, per caller and panel, for one request */
+    protected static array $tenantKeys = [];
+
+    /**
+     * Whether two users of a panel with tenancy have a tenant in common (the routes carry
+     * no tenant). Inside a tenant, asking the callee about it is enough; otherwise the
+     * caller's tenants are read once per request, so a table of Call buttons does not
+     * read them per row.
+     */
+    public static function sharesTenant(Authenticatable $caller, Authenticatable $callee, Panel $panel): bool
     {
         if (! $caller instanceof HasTenants || ! $callee instanceof HasTenants) {
             return false;
         }
 
-        $mine = collect($caller->getTenants($panel))->map(fn (Model $tenant) => $tenant->getMorphClass().':'.$tenant->getKey());
+        $current = Filament::getTenant();
 
-        return collect($callee->getTenants($panel))->contains(fn (Model $tenant) => $mine->contains($tenant->getMorphClass().':'.$tenant->getKey()));
+        if ($current && $callee->canAccessTenant($current)) {
+            return true;
+        }
+
+        $cacheKey = $panel->getId().'|'.$caller::class.':'.$caller->getAuthIdentifier();
+        $mine = static::$tenantKeys[$cacheKey] ??= collect($caller->getTenants($panel))->map(fn (Model $tenant) => $tenant->getMorphClass().':'.$tenant->getKey())->all();
+
+        return collect($callee->getTenants($panel))->contains(fn (Model $tenant) => in_array($tenant->getMorphClass().':'.$tenant->getKey(), $mine, true));
+    }
+
+    /** Forget what was read about tenants (a long-running worker between requests, tests). */
+    public static function flushTenantCache(): void
+    {
+        static::$tenantKeys = [];
     }
 
     /** @return array<int, array<string, mixed>> */

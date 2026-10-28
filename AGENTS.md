@@ -37,7 +37,7 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
   `await import()` relative to its published URL and with its own `?v=` query (Alpine components land in `components/`;
   the core is a `Js` asset `loadedOnRequest()` so it is published but not put in `<head>`). Builds `HttpSignaling`
   (`kind: 'call'`, the `ice` route) and `CallClient` (`iceServers` a function asking `signaling.configuration()` per call),
-  firing `filament-calls:configure` with the options first. `show()` sends a Filament notification (`window.FilamentNotification`,
+  firing `filament-calls-configure` with the options first. `show()` sends a Filament notification (`window.FilamentNotification`,
   when `.fi-no` is on the page) and falls back to the notice card. Pop-out trust: `openWindow()` writes a one-time
   `packstub-calls:open:<token>` to localStorage and adds `&open=<token>`; `readOpenedFor()` in the pop-out rings or
   answers only with a matching token under 60 s old (same scheme as calls-js `widget.js`).

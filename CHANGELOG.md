@@ -4,6 +4,8 @@ All notable changes to `packstub/filament-calls` are documented in this file.
 
 ## Unreleased
 
+- Review fixes: outside a panel (the core's own routes and widget, another package's guest routes) the context answers like a plain app instead of from the default panel; `FilamentCallsPlugin::sharesTenant()` is public and a `canCall()` closure can take `bool $sharesTenant` to keep the tenant rule; inside a tenant the callee is asked about it, and the caller's tenants are read once per request (a table of Call buttons no longer reads them per row); a refused invite shows one notice, not two; a blocked pop-out's token is removed and unused ones swept; the configure event is `filament-calls-configure`, like the plugin's other events.
+
 - The plugin lives in `Packstub\FilamentCalls\`, the core keeps `Packstub\Calls\`: one PSR-4 root per package, so class names cannot collide across the two.
 - A pop-out link alone no longer rings anyone or answers a call: the page that opens the window leaves a one-time token in `localStorage` (60 s, read once) and the pop-out acts only with it. Without it, `?call=` shows the call with Accept (or continues one you are on) and `?callee=` only polls; the Blade view no longer passes `autoStart`.
 - A pop-out that rang someone puts the call's id in its address as soon as the call exists (it used to wait for the next state change), so a reload continues the call.
@@ -11,7 +13,7 @@ All notable changes to `packstub/filament-calls` are documented in this file.
 - The widget polls only for calls of kind `call`, so another package's calls on the same tables (Session Replay's assist) never ring in it.
 - Errors: a 401 or 419 (signed out, session expired) stops polling quietly; only a refusal the server explains (a 4xx with a `reason`) is shown, never a raw 500. A busy callee ends the attempt with "Busy" from the engine.
 - The engine (`calls-core.js`) is imported with the component's own `?v=` version, so a release never pairs a new widget with a cached old engine.
-- `filament-calls:configure` event on `window`, fired with the engine's options just before the engine is built: a script can set `topology` (an SFU), `reconnectTimeout` and the rest.
+- `filament-calls-configure` event on `window`, fired with the engine's options just before the engine is built: a script can set `topology` (an SFU), `reconnectTimeout` and the rest.
 - Leaving the page takes the call down properly: `destroy()` closes the camera and the connections, the ring's audio context and the pop-out's close timer.
 - The chip's clock counts from the answer, not from the ringing.
 - `filament-calls-sharing` fires only when someone's screen starts or stops, not on every mute.

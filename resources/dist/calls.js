@@ -101,6 +101,19 @@ function ringer() {
     }
 }
 
+/** Tokens nobody used (the window was blocked or closed before it read one): gone after their minute. */
+function sweepTokens() {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i)
+        if (! key?.startsWith(OPEN_TOKEN_KEY)) continue
+        try {
+            if (Date.now() - JSON.parse(localStorage.getItem(key)).at > OPEN_TOKEN_TTL) localStorage.removeItem(key)
+        } catch {
+            localStorage.removeItem(key)
+        }
+    }
+}
+
 export default function packstubCalls(config) {
     let client = null
     let clock = null
@@ -153,7 +166,7 @@ export default function packstubCalls(config) {
             }
 
             // The last word for the page: a script may change the options (a `topology` for an SFU, `channels`…).
-            window.dispatchEvent(new CustomEvent('filament-calls:configure', { detail: options }))
+            window.dispatchEvent(new CustomEvent('filament-calls-configure', { detail: options }))
 
             client = new CallClient(options)
 
@@ -320,7 +333,9 @@ export default function packstubCalls(config) {
                 const peer = call.peers?.find((candidate) => String(candidate.id) === String(user))
                 this.show(fill(config.labels.inviting, { name: peer?.name ?? '' }), 'info')
             } catch (error) {
-                this.show(error?.full ? config.labels.call_full : (error?.message || config.labels.call_full))
+                // A refusal from the server was already shown by the error listener.
+                if (error?.full) this.show(config.labels.call_full)
+                else if (! error?.status) this.show(error?.message || config.labels.call_full)
             }
         },
 
@@ -356,9 +371,11 @@ export default function packstubCalls(config) {
          */
         openWindow(params) {
             const token = Math.random().toString(36).slice(2) + Date.now().toString(36)
+            const key = `${OPEN_TOKEN_KEY}${token}`
             let url = windowUrl(params)
             try {
-                localStorage.setItem(`${OPEN_TOKEN_KEY}${token}`, JSON.stringify({ call: params.call ?? null, callee: params.callee ?? null, at: Date.now() }))
+                sweepTokens()
+                localStorage.setItem(key, JSON.stringify({ call: params.call ?? null, callee: params.callee ?? null, at: Date.now() }))
                 url += `${url.includes('?') ? '&' : '?'}open=${token}`
             } catch {
                 // No storage: the pop-out shows the call and waits for a click.
@@ -366,6 +383,9 @@ export default function packstubCalls(config) {
 
             popup = window.open(url, 'filament-calls', 'popup=yes,width=460,height=620')
             popup?.focus()
+            if (! popup) {
+                try { localStorage.removeItem(key) } catch {}
+            }
 
             return popup !== null
         },

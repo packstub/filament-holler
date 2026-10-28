@@ -58,12 +58,20 @@ it('asks two users of a panel with tenancy to share a tenant', function (): void
         }
     };
 
-    $share = (new ReflectionMethod(FilamentCallsPlugin::class, 'shareTenant'))->getClosure();
     $panel = Filament::getPanel('admin');
+    $share = function ($caller, $callee) use ($panel): bool {
+        FilamentCallsPlugin::flushTenantCache();
 
-    expect($share($member([$tenantOf(1), $tenantOf(2)]), $member([$tenantOf(2)]), $panel))->toBeTrue()
-        ->and($share($member([$tenantOf(1)]), $member([$tenantOf(3)]), $panel))->toBeFalse()
-        ->and($share($this->ion, $this->ana, $panel))->toBeFalse();
+        return FilamentCallsPlugin::sharesTenant($caller, $callee, $panel);
+    };
+
+    expect($share($member([$tenantOf(1), $tenantOf(2)]), $member([$tenantOf(2)])))->toBeTrue()
+        ->and($share($member([$tenantOf(1)]), $member([$tenantOf(3)])))->toBeFalse()
+        ->and($share($this->ion, $this->ana))->toBeFalse();
+
+    // A closure keeps the tenant rule through the injected `$sharesTenant`.
+    FilamentCallsPlugin::get()->canCall(fn (bool $sharesTenant): bool => $sharesTenant);
+    expect(FilamentCallsPlugin::get()->isCallAllowed($this->ion, $this->ana))->toBeTrue();
 });
 
 it('keeps the calls of a panel in its guard', function (): void {

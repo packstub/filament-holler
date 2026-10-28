@@ -11,6 +11,16 @@ use Packstub\FilamentCalls\PanelContext;
 beforeEach(function (): void {
     $this->ion = user('Ion');
     $this->ana = user('Ana');
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+});
+
+it('answers like a plain app outside a panel: the core\'s guard, not the default panel\'s', function (): void {
+    Filament::setCurrentPanel(null);
+    config()->set('packstub-calls.guard', 'web');
+
+    expect(app(PanelContext::class)->plugin())->toBeNull()
+        ->and(Calls::context()->scope())->toBe('web')
+        ->and(Calls::currentUserId())->toBeNull();
 });
 
 it('binds the panel context over the core\'s app context', function (): void {

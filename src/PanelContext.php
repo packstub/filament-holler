@@ -35,7 +35,9 @@ class PanelContext implements CallContext
 
     protected function panel(): ?Panel
     {
-        return Filament::getCurrentOrDefaultPanel();
+        // Only a request inside a panel answers from it; elsewhere (the core's own routes and widget,
+        // another package's guest routes) the plain context decides, with its own guard.
+        return Filament::getCurrentPanel();
     }
 
     /** The panel's guard: users of two panels on different guards never ring each other. */
