@@ -204,7 +204,7 @@ class FilamentCallsPlugin implements Plugin
     {
         $panel
             ->authenticatedRoutes(function (): void {
-                // The core's eight signaling routes, behind the panel's auth and CSRF, plus the pop-out page.
+                // The core's nine signaling routes, behind the panel's auth and CSRF, plus the pop-out page.
                 Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.', window: false);
                 Route::get('filament-calls/window', WindowController::class)->name('filament-calls.window');
             })

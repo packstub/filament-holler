@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   tests:
-    name: Tests (PHP ${{ matrix.php }}, Laravel ${{ matrix.laravel }}, Filament ${{ matrix.filament }})
+    name: Tests (PHP ${{ matrix.php }}, Laravel ${{ matrix.laravel }}, Filament ${{ matrix.filament }}, ${{ matrix.dependencies }})
     runs-on: ubuntu-latest
 
     strategy:
@@ -18,16 +18,19 @@ jobs:
       matrix:
         php: ["8.3", "8.4", "8.5"]
         laravel: ["12.*", "13.*"]
-        # 4.13.3 and 5.8.3 are the declared floors (the first releases past the MFA advisories PKSA-cnr1-6g7k-bp3d et al.): "4.*" alone resolves to the newest 4.x and never exercises them.
-        filament: ["4.13.3", "4.*", "5.8.3", "5.*"]
+        filament: ["4.*", "5.*"]
+        dependencies: ["prefer-stable"]
         include:
           - laravel: "12.*"
             testbench: "10.*"
           - laravel: "13.*"
             testbench: "11.*"
-        exclude:
-          - php: "8.3"
-            laravel: "13.*"
+          # The floors: 4.13.3 and 5.8.3 are the declared minimums (the first releases past the MFA
+          # advisories PKSA-cnr1-6g7k-bp3d et al.), on the oldest PHP with the lowest versions of the rest.
+          - { php: "8.3", laravel: "12.*", testbench: "10.*", filament: "4.13.3", dependencies: "prefer-lowest" }
+          - { php: "8.3", laravel: "13.*", testbench: "11.*", filament: "4.13.3", dependencies: "prefer-lowest" }
+          - { php: "8.3", laravel: "12.*", testbench: "10.*", filament: "5.8.3", dependencies: "prefer-lowest" }
+          - { php: "8.3", laravel: "13.*", testbench: "11.*", filament: "5.8.3", dependencies: "prefer-lowest" }
 
     steps:
       - name: Checkout
@@ -48,14 +51,14 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-php${{ matrix.php }}-laravel${{ matrix.laravel }}-filament${{ matrix.filament }}-${{ hashFiles('composer.json') }}
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-laravel${{ matrix.laravel }}-filament${{ matrix.filament }}-${{ matrix.dependencies }}-${{ hashFiles('composer.json') }}
           restore-keys: |
             composer-${{ runner.os }}-php${{ matrix.php }}-
 
       - name: Install dependencies
         run: |
           composer require "illuminate/contracts:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" "filament/filament:${{ matrix.filament }}" --no-interaction --no-update
-          composer update --prefer-dist --no-interaction --no-progress
+          composer update --${{ matrix.dependencies }} --prefer-stable --prefer-dist --no-interaction --no-progress
 
       - name: Check code style
         run: vendor/bin/pint --test
