@@ -21,7 +21,9 @@ class WindowController
         if ($callId) {
             $call = Call::query()->findOrFail($callId);
 
-            abort_unless($call->involves((string) Calls::currentUserId()), 403);
+            $me = (string) Calls::currentUserId();
+
+            abort_unless($call->involves($me) && Calls::inScope($call, $me), 403);
         }
 
         return view('filament-calls::window');

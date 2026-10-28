@@ -1,6 +1,7 @@
 <?php
 
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\DB;
 use Packstub\Calls\AppContext;
 use Packstub\Calls\Contracts\CallContext;
 use Packstub\Calls\Facades\Calls;
@@ -10,6 +11,16 @@ use Packstub\FilamentCalls\PanelContext;
 beforeEach(function (): void {
     $this->ion = user('Ion');
     $this->ana = user('Ana');
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+});
+
+it('answers like a plain app outside a panel: the core\'s guard, not the default panel\'s', function (): void {
+    Filament::setCurrentPanel(null);
+    config()->set('packstub-calls.guard', 'web');
+
+    expect(app(PanelContext::class)->plugin())->toBeNull()
+        ->and(Calls::context()->scope())->toBe('web')
+        ->and(Calls::currentUserId())->toBeNull();
 });
 
 it('binds the panel context over the core\'s app context', function (): void {
@@ -30,6 +41,22 @@ it('names people the way the panel does and finds them through the panel guard',
             'name' => Filament::getUserName($this->ana),
             'avatar' => Filament::getUserAvatarUrl($this->ana),
         ]);
+});
+
+it('never asks the database for an id that cannot be a key of the panel\'s users', function (): void {
+    $this->actingAs($this->ion);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $context = app(PanelContext::class);
+
+    DB::enableQueryLog();
+
+    expect($context->findUser('abc'))->toBeNull()
+        ->and($context->findUser('1 OR 1=1'))->toBeNull()
+        ->and($context->findUsers(['abc', '-1', '']))->toBe([])
+        ->and(DB::getQueryLog())->toBe([]);
+
+    expect(collect($context->findUsers(['abc', (string) $this->ana->getKey()]))->map->getKey()->all())->toBe([$this->ana->getKey()])
+        ->and($context->findUser((string) $this->ana->getKey())?->is($this->ana))->toBeTrue();
 });
 
 it('answers who may call, the ICE servers and video from the plugin, with the config behind it', function (): void {

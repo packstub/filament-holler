@@ -10,12 +10,53 @@
  * when a pop-out holds the call, a small chip), and the pop-out page itself (config.popup).
  */
 
-import { CallClient, HttpSignaling } from '../calls-core.js'
+// The engine is imported with this file's own `?v=` query (Filament adds the package version to the
+// component URL), so a new release never runs a new widget against a cached old engine. Top-level
+// await is fine: Filament's x-load imports this module and waits for it.
+const { CallClient, HttpSignaling } = await import(new URL('../calls-core.js', import.meta.url).href + new URL(import.meta.url).search)
 
 const ACTIVE_STATES = ['calling', 'connecting', 'active', 'reconnecting']
 
 // A pop-out that stopped holding the call for this long is gone, not reloading: the main tab takes the call back.
 const TAKE_BACK_DELAY = 3000
+
+// What the opening page leaves in localStorage for the pop-out: { call, callee, at }, read once.
+const OPEN_TOKEN_KEY = 'packstub-calls:open:'
+const OPEN_TOKEN_TTL = 60000
+
+/** `:name` and the like in a label, taken literally (a `$` in someone's name stays a `$`). */
+function fill(label, values) {
+    return Object.entries(values).reduce((text, [key, value]) => text.replace(`:${key}`, () => String(value ?? '')), String(label ?? ''))
+}
+
+/**
+ * What this pop-out was opened for. `trusted` only when the page that opened it left the
+ * matching one-time token in localStorage: a link someone sent cannot ring anybody or
+ * answer a call by itself.
+ */
+function readOpenedFor() {
+    const query = new URLSearchParams(location.search)
+    const opened = { call: query.get('call') || null, callee: query.get('callee') || null, trusted: false }
+    const token = query.get('open')
+
+    if (token) {
+        try {
+            const key = `${OPEN_TOKEN_KEY}${token}`
+            const asked = JSON.parse(localStorage.getItem(key) ?? 'null')
+            localStorage.removeItem(key)
+            opened.trusted = Boolean(asked) && Date.now() - asked.at < OPEN_TOKEN_TTL
+                && String(asked.call ?? '') === String(opened.call ?? '') && String(asked.callee ?? '') === String(opened.callee ?? '')
+        } catch {
+            opened.trusted = false
+        }
+
+        // Spent: a reload must not look as if it carried one.
+        query.delete('open')
+        history.replaceState(null, '', `${location.pathname}?${query}`)
+    }
+
+    return opened
+}
 
 // A ring (two short beeps) for the callee, a ringback (one long tone) for the caller.
 function ringer() {
@@ -52,6 +93,24 @@ function ringer() {
             clearInterval(timer)
             timer = null
         },
+        close() {
+            this.stop()
+            context?.close?.().catch?.(() => {})
+            context = null
+        },
+    }
+}
+
+/** Tokens nobody used (the window was blocked or closed before it read one): gone after their minute. */
+function sweepTokens() {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i)
+        if (! key?.startsWith(OPEN_TOKEN_KEY)) continue
+        try {
+            if (Date.now() - JSON.parse(localStorage.getItem(key)).at > OPEN_TOKEN_TTL) localStorage.removeItem(key)
+        } catch {
+            localStorage.removeItem(key)
+        }
     }
 }
 
@@ -61,6 +120,10 @@ export default function packstubCalls(config) {
     let popup = null
     let takeBackTimer = null
     let resizeObserver = null
+    let closeTimer = null
+    let clockSince = null
+    // Who is sharing a screen, so `filament-calls-sharing` fires only when that changes (a mute is a peerstate too).
+    const sharingPeers = new Map()
     const ring = ringer()
 
     const windowUrl = (params) => config.windowUrl.replace('__ID__', encodeURIComponent(params.call ?? '')).replace('__USER__', encodeURIComponent(params.callee ?? ''))
@@ -81,37 +144,44 @@ export default function packstubCalls(config) {
         popOut: Boolean(config.popOut) && ! config.popup,
 
         init() {
-            client = new CallClient({
-                signaling: new HttpSignaling({
-                    routes: config.routes,
-                    headers: { 'X-CSRF-TOKEN': config.csrf, 'X-Requested-With': 'XMLHttpRequest' },
-                    beaconFields: { _token: config.csrf },
-                }),
-                iceServers: config.iceServers,
+            const signaling = new HttpSignaling({
+                routes: config.routes,
+                headers: { 'X-CSRF-TOKEN': config.csrf, 'X-Requested-With': 'XMLHttpRequest' },
+                beaconFields: { _token: config.csrf },
+                // Only calls: another package's calls (Session Replay's assist) never ring here.
+                kind: config.kind ?? 'call',
+            })
+
+            const options = {
+                signaling,
+                // Asked from the `ice` route each time a call starts, so short-lived TURN credentials never go stale.
+                iceServers: () => signaling.configuration().then((rtc) => rtc.iceServers),
+                iceTransportPolicy: config.iceTransportPolicy === 'relay' ? 'relay' : 'all',
                 video: config.video,
                 poll: config.poll,
                 reconnectTimeout: config.reconnectTimeout,
                 maxParticipants: config.maxParticipants,
                 // A tab that leaves calls to the pop-out never takes one over itself.
                 resumes: ! this.popOut,
-            })
+            }
+
+            // The last word for the page: a script may change the options (a `topology` for an SFU, `channels`…).
+            window.dispatchEvent(new CustomEvent('filament-calls-configure', { detail: options }))
+
+            client = new CallClient(options)
 
             client.addEventListener('statechange', ({ detail: { state } }) => {
                 this.state = state
                 this.call = client.call
                 this.sharing = client.sharing
 
-                // The pop-out was opened to ring someone: from here on its URL names the call,
-                // so a reload continues it instead of ringing again.
-                if (this.popup && client.call && ! location.search.includes('call=' + client.call.id)) {
-                    history.replaceState(null, '', windowUrl({ call: client.call.id }))
-                }
+                this.syncUrl()
 
                 ring.stop()
                 if (state === 'ringing') ring.play('ring')
                 if (state === 'calling') ring.play('ringback')
 
-                if (state === 'active' || state === 'elsewhere') this.startClock()
+                if (state === 'active' || (state === 'elsewhere' && client.call?.status === 'active')) this.startClock()
                 else if (! ['reconnecting', 'connecting'].includes(state)) this.stopClock()
             })
 
@@ -121,6 +191,12 @@ export default function packstubCalls(config) {
             })
             client.addEventListener('update', ({ detail: { call } }) => {
                 this.call = call
+                // The chip's clock counts from the answer, not from the ringing.
+                if (this.state === 'elsewhere' && call.status === 'active' && (! clock || (call.answered_at && clockSince === null))) {
+                    this.stopClock()
+                    this.startClock()
+                }
+                this.syncUrl()
                 this.syncPeers()
                 this.watchWindow()
             })
@@ -128,14 +204,17 @@ export default function packstubCalls(config) {
             // A shared screen takes the stage: the look of every window on the call changes with it.
             client.addEventListener('peerstate', ({ detail: { peer, sharing } }) => {
                 this.syncPeers()
+                if ((sharingPeers.get(peer.id) ?? false) === sharing) return
+                sharingPeers.set(peer.id, sharing)
                 this.$dispatch('filament-calls-sharing', { peer, sharing, spotlight: this.spotlight })
             })
             // The roster, who is connected, muted or sharing, and whose media arrived: one event, the tiles follow.
             client.addEventListener('peers', () => this.syncPeers())
             client.addEventListener('remotestream', () => this.syncPeers())
             client.addEventListener('peerleft', ({ detail: { peer, reason } }) => {
+                sharingPeers.delete(peer.id)
                 const label = config.labels[`peer_${reason}`]
-                if (label && this.peers.length > 0) this.show(label.replace(':name', peer.name))
+                if (label && this.peers.length > 0) this.show(fill(label, { name: peer.name }))
             })
 
             client.addEventListener('ended', ({ detail: { reason } }) => {
@@ -143,16 +222,23 @@ export default function packstubCalls(config) {
                 this.sharing = false
                 clearTimeout(takeBackTimer)
                 takeBackTimer = null
-                this.show(config.labels[`ended_${reason}`] || config.labels.ended_hung_up)
+                sharingPeers.clear()
+                // A call someone hung up is news, not a problem; declined, missed, busy or failed is worth a warning.
+                this.show(config.labels[`ended_${reason}`] || config.labels.ended_hung_up, ['hung_up', 'cancelled'].includes(reason) || ! config.labels[`ended_${reason}`] ? 'info' : 'warning')
 
-                if (this.popup) setTimeout(() => window.close(), 1500)
+                if (this.popup) closeTimer = setTimeout(() => window.close(), 1500)
             })
 
             client.addEventListener('error', ({ detail: { error, media } }) => {
+                // Signed out, or the session expired: nothing to say every few seconds, just stop.
+                if (error?.status === 401 || error?.status === 419) {
+                    client.stop()
+                    return
+                }
                 console.warn('[filament-calls]', error)
                 if (media) this.show(config.labels.no_media)
-                else if (error?.status === 409) this.show(config.labels.ended_busy)
-                else if (error?.status && error.status !== 404) this.show(error.message)
+                // The server's own words for a refusal it explains (not allowed, full); nothing raw from a crash.
+                else if (error?.reason && error.status >= 400 && error.status < 500) this.show(error.message)
             })
 
             this.onCall = (event) => this.start(event.detail?.user)
@@ -162,11 +248,15 @@ export default function packstubCalls(config) {
             this.onLeave = () => client.leave()
             window.addEventListener('pagehide', this.onLeave)
 
-            if (this.popup && config.autoStart?.callee) {
+            // The pop-out rings someone or answers only when the page that opened it asked (the token);
+            // a link alone continues a call I am already in, or shows the one ringing me, with Accept.
+            const opened = this.popup ? readOpenedFor() : null
+
+            if (opened?.callee && opened.trusted) {
                 client.start()
-                client.callUser(String(config.autoStart.callee)).catch(() => {})
-            } else if (this.popup && config.autoStart?.call) {
-                client.resumeCall(config.autoStart.call, { answer: true })
+                client.callUser(String(opened.callee)).catch(() => {})
+            } else if (opened?.call) {
+                client.resumeCall(opened.call, { answer: opened.trusted })
             } else {
                 client.start()
             }
@@ -195,8 +285,11 @@ export default function packstubCalls(config) {
             window.removeEventListener('pagehide', this.onLeave)
             this.stopClock()
             clearTimeout(takeBackTimer)
-            ring.stop()
-            client?.stop()
+            clearTimeout(closeTimer)
+            clearTimeout(this.noticeTimer)
+            ring.close()
+            // Lets go of the call and closes the camera and the connections, without events.
+            client?.destroy()
         },
 
         start(user) {
@@ -238,9 +331,21 @@ export default function packstubCalls(config) {
             try {
                 const call = await client.invite(String(user))
                 const peer = call.peers?.find((candidate) => String(candidate.id) === String(user))
-                this.show(config.labels.inviting.replace(':name', peer?.name ?? ''))
+                this.show(fill(config.labels.inviting, { name: peer?.name ?? '' }), 'info')
             } catch (error) {
-                this.show(error?.full ? config.labels.call_full : (error?.message || config.labels.call_full))
+                // A refusal from the server was already shown by the error listener.
+                if (error?.full) this.show(config.labels.call_full)
+                else if (! error?.status) this.show(error?.message || config.labels.call_full)
+            }
+        },
+
+        /**
+         * The pop-out was opened to ring someone: once the call has an id its URL names the
+         * call, so a reload continues it instead of ringing again.
+         */
+        syncUrl() {
+            if (this.popup && client.call && new URLSearchParams(location.search).get('call') !== String(client.call.id)) {
+                history.replaceState(null, '', windowUrl({ call: client.call.id }))
             }
         },
 
@@ -259,10 +364,28 @@ export default function packstubCalls(config) {
             return peer.hasVideo && (! peer.cameraOff || peer.sharing)
         },
 
-        /** Open the pop-out; false when the browser blocked it (then the call stays on this page). */
+        /**
+         * Open the pop-out; false when the browser blocked it (then the call stays on this page).
+         * A one-time token in localStorage tells the pop-out that this page asked it to ring or to
+         * answer: the same URL from anywhere else only shows the call.
+         */
         openWindow(params) {
-            popup = window.open(windowUrl(params), 'filament-calls', 'popup=yes,width=460,height=620')
+            const token = Math.random().toString(36).slice(2) + Date.now().toString(36)
+            const key = `${OPEN_TOKEN_KEY}${token}`
+            let url = windowUrl(params)
+            try {
+                sweepTokens()
+                localStorage.setItem(key, JSON.stringify({ call: params.call ?? null, callee: params.callee ?? null, at: Date.now() }))
+                url += `${url.includes('?') ? '&' : '?'}open=${token}`
+            } catch {
+                // No storage: the pop-out shows the call and waits for a click.
+            }
+
+            popup = window.open(url, 'filament-calls', 'popup=yes,width=460,height=620')
             popup?.focus()
+            if (! popup) {
+                try { localStorage.removeItem(key) } catch {}
+            }
 
             return popup !== null
         },
@@ -305,7 +428,7 @@ export default function packstubCalls(config) {
 
             this.takingBack = true
             try {
-                if (await client.takeOver()) this.show(config.labels.window_closed_continuing)
+                if (await client.takeOver()) this.show(config.labels.window_closed_continuing, 'info')
             } finally {
                 this.takingBack = false
             }
@@ -339,7 +462,8 @@ export default function packstubCalls(config) {
 
         startClock() {
             if (clock) return
-            const since = this.call?.answered_at ? Date.parse(this.call.answered_at) : Date.now()
+            clockSince = this.call?.answered_at ? Date.parse(this.call.answered_at) : null
+            const since = clockSince ?? Date.now()
             this.seconds = Math.max(0, Math.floor((Date.now() - since) / 1000))
             clock = setInterval(() => this.seconds++, 1000)
         },
@@ -347,10 +471,23 @@ export default function packstubCalls(config) {
         stopClock() {
             clearInterval(clock)
             clock = null
+            clockSince = null
             this.seconds = 0
         },
 
-        show(text) {
+        /**
+         * Tell the person something: a Filament notification where the page has them (every
+         * panel page and the pop-out), the widget's own notice card otherwise.
+         */
+        show(text, status = 'warning') {
+            if (! text) return
+
+            if (window.FilamentNotification && document.querySelector('.fi-no')) {
+                const notification = new window.FilamentNotification().title(text)
+                ;(status === 'info' ? notification.info() : notification.warning()).send()
+                return
+            }
+
             this.notice = text
             clearTimeout(this.noticeTimer)
             this.noticeTimer = setTimeout(() => { this.notice = null }, 4000)
@@ -372,7 +509,7 @@ export default function packstubCalls(config) {
         },
 
         get othersLabel() {
-            return config.labels.and_more.replace(':count', this.others)
+            return fill(config.labels.and_more, { count: this.others })
         },
 
         get elapsed() {

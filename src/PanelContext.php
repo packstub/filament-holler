@@ -35,7 +35,15 @@ class PanelContext implements CallContext
 
     protected function panel(): ?Panel
     {
-        return Filament::getCurrentOrDefaultPanel();
+        // Only a request inside a panel answers from it; elsewhere (the core's own routes and widget,
+        // another package's guest routes) the plain context decides, with its own guard.
+        return Filament::getCurrentPanel();
+    }
+
+    /** The panel's guard: users of two panels on different guards never ring each other. */
+    public function scope(): string
+    {
+        return $this->panel() ? (string) $this->panel()->getAuthGuard() : $this->app->scope();
     }
 
     public function currentUserId(): ?string
@@ -55,7 +63,14 @@ class PanelContext implements CallContext
             return $this->app->findUser($id);
         }
 
-        $user = Filament::auth()->getProvider()?->retrieveById($id);
+        $provider = Filament::auth()->getProvider();
+
+        // An id that cannot be a key ("abc" for an integer key) never reaches the database: Postgres would throw.
+        if (! AppContext::couldBeKey($provider, $id)) {
+            return null;
+        }
+
+        $user = $provider?->retrieveById($id);
 
         return $user instanceof Authenticatable ? $user : null;
     }
@@ -70,6 +85,7 @@ class PanelContext implements CallContext
             return $this->app->findUsers($ids);
         }
 
+        // Skips ids that cannot be a key, like findUser().
         return AppContext::retrieveMany(Filament::auth()->getProvider(), $ids);
     }
 

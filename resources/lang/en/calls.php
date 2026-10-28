@@ -23,7 +23,6 @@ return [
     'camera_on' => 'Turn camera on',
     'share_screen' => 'Share screen',
     'stop_sharing' => 'Stop sharing',
-    'you' => 'You',
     'inviting' => 'Ringing :name…',
     'call_full' => 'This call is full.',
     'peer_left' => ':name left the call',
