@@ -4,7 +4,7 @@ All notable changes to `packstub/filament-calls` are documented in this file.
 
 ## Unreleased
 
-First release: audio, video and screen-share calls between the users of a Filament v4 or v5 panel, 1-on-1 or in groups of up to four, peer to peer over WebRTC. Built on `packstub/calls` (the signaling backend: tables, models, events, config, the `Calls` service and the `CallContext` contract, all of which started here) and `@packstub/calls` (the browser engine, bundled as `resources/dist/calls-core.js`).
+First release: audio, video and screen-share calls between the users of a Filament panel (4.13.3+ or 5.8.3+, Laravel 12.69+ or 13.30+), 1-on-1 or in groups of up to four, peer to peer over WebRTC. Built on `packstub/calls` (the signaling backend: tables, models, events, config, the `Calls` service and the `CallContext` contract, all of which started here) and `@packstub/calls` (the browser engine, bundled as `resources/dist/calls-core.js`).
 
 ### The plugin
 
@@ -23,7 +23,7 @@ First release: audio, video and screen-share calls between the users of a Filame
 
 ### Where the call lives
 
-- A pop-out window by default on panels without SPA mode: Call and Accept open the call in a small window of its own, and the main tab shows a chip (names, a timer counting from the answer, bring the window back, hang up) and can navigate, reload or close. Closing the pop-out hands the call back to the main tab, which continues it in the page; a reloading pop-out keeps its side. When the browser blocks the pop-out, the call opens in the page with a notice.
+- A pop-out window by default on panels without SPA mode: Call and Accept open the call in a small window of its own, and the main tab shows a chip (names, a timer counting from the answer, bring the window back, hang up) and can navigate, reload or close. Closing the pop-out hands the call back to the main tab, which continues it in the page; a reloading pop-out keeps its side. A pop-out closed before answering rings the main tab again. When the browser blocks the pop-out, the call opens in the page with a notice.
 - A pop-out link alone never rings anyone or answers a call: the page that opens the window leaves a one-time token in `localStorage` (60 s, read once).
 - In the page in SPA mode, and after a full page load mid-call the call reconnects within a few seconds while the other side sees "Reconnecting…"; a side away longer than `reconnect_timeout` (15 s) ends the call as dropped.
 - The widget polls only for calls of kind `call`, so another package's calls on the same tables (Session Replay's assist, say) never ring in it. Signed out (401, 419) it stops polling quietly.
