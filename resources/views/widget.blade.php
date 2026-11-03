@@ -38,6 +38,15 @@
         'maxParticipants' => $plugin->getMaxParticipants(),
         'labels' => __('filament-calls::calls'),
     ];
+
+    // How I appear in my own corner while my camera is off.
+    $me = Filament::auth()->user();
+    $myName = $me ? Filament::getUserName($me) : '';
+    $myAvatar = $me ? Filament::getUserAvatarUrl($me) : null;
+
+    // Heroicons has no microphone-slash: the outline microphone with a slash across it, like video-camera-slash.
+    // The default of the UNMUTE and MUTED aliases; an app can still register its own icon for them.
+    $micOff = new \Illuminate\Support\HtmlString('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" style="width: 100%; height: 100%"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/><path stroke-linecap="round" d="m3 3 18 18"/></svg>');
 @endphp
 
 {{-- @persist keeps the call alive across wire:navigate page loads in SPA mode. --}}
@@ -139,7 +148,7 @@
                         {{-- What this person told us: muted, camera off, sharing --}}
                         <div class="fi-calls-badges">
                             <span class="fi-calls-badge" x-show="peer.muted" x-cloak data-peer="muted">
-                                <x-filament::icon :icon="Heroicon::SpeakerXMark" :size="IconSize::Small" :alias="Icon::MUTED" class="fi-calls-badge-icon" />
+                                <x-filament::icon :icon="$micOff" :size="IconSize::Small" :alias="Icon::MUTED" class="fi-calls-badge-icon" />
                                 {{ __('filament-calls::calls.peer_muted') }}
                             </span>
                             <span class="fi-calls-badge" x-show="peer.sharing" x-cloak data-peer="sharing">
@@ -154,27 +163,42 @@
                     </div>
                 </template>
             </div>
-            <video x-ref="local" autoplay playsinline muted class="fi-calls-local" :class="{ 'fi-calls-mirror': ! sharing, 'fi-calls-hidden': cameraOff && ! sharing }"></video>
+            {{-- My own picture, and my own mute where I can see it. --}}
+            <div class="fi-calls-self" data-self-tile>
+                <div class="fi-calls-self-placeholder" x-show="selfPlaceholder" x-cloak data-self="camera-off">
+                    @if ($myAvatar)
+                        <x-filament::avatar :src="$myAvatar" alt="" size="fi-calls-avatar fi-calls-avatar-sm" />
+                    @else
+                        <span class="fi-calls-avatar fi-calls-avatar-sm fi-calls-avatar-initials" x-text="initials(@js($myName))"></span>
+                    @endif
+                </div>
+                <video x-ref="local" autoplay playsinline muted class="fi-calls-local" :class="{ 'fi-calls-mirror': ! sharing, 'fi-calls-hidden': selfPlaceholder }"></video>
+                <span class="fi-calls-badge fi-calls-self-badge" x-show="muted" x-cloak data-self="muted" title="{{ __('filament-calls::calls.you_muted') }}">
+                    <x-filament::icon :icon="$micOff" :size="IconSize::Small" :alias="Icon::MUTED" class="fi-calls-badge-icon" />
+                    <span class="fi-calls-self-badge-text">{{ __('filament-calls::calls.you_muted') }}</span>
+                </span>
+            </div>
         </div>
 
         {{-- Toggles are Filament's own pressed buttons (aria-pressed), two per toggle, one per
-             state, so each has its own icon and label; x-show switches between them. --}}
+             state, so each has its own icon and label; x-show switches between them. Off is grey,
+             on stands out: a muted mic or a stopped camera turns red, a shared screen primary. --}}
         <div class="fi-calls-controls">
-            <x-filament::button color="danger" :icon="Heroicon::OutlinedMicrophone" :icon-alias="Icon::MUTE" label-sr-only :tooltip="__('filament-calls::calls.mute')" aria-pressed="false" x-show="! muted" x-on:click="toggleMute" class="fi-calls-round">
+            <x-filament::button color="gray" :icon="Heroicon::OutlinedMicrophone" :icon-alias="Icon::MUTE" label-sr-only :tooltip="__('filament-calls::calls.mute')" aria-pressed="false" x-show="! muted" x-on:click="toggleMute" class="fi-calls-round">
                 {{ __('filament-calls::calls.mute') }}
             </x-filament::button>
-            <x-filament::button color="danger" :icon="Heroicon::OutlinedSpeakerXMark" :icon-alias="Icon::UNMUTE" label-sr-only :tooltip="__('filament-calls::calls.unmute')" aria-pressed="true" x-show="muted" x-cloak x-on:click="toggleMute" class="fi-calls-round">
+            <x-filament::button color="danger" :icon="$micOff" :icon-alias="Icon::UNMUTE" label-sr-only :tooltip="__('filament-calls::calls.unmute')" aria-pressed="true" x-show="muted" x-cloak x-on:click="toggleMute" class="fi-calls-round">
                 {{ __('filament-calls::calls.unmute') }}
             </x-filament::button>
 
-            <x-filament::button color="danger" :icon="Heroicon::OutlinedVideoCamera" :icon-alias="Icon::CAMERA_OFF" label-sr-only :tooltip="__('filament-calls::calls.camera_off')" aria-pressed="false" x-show="! cameraOff" x-on:click="toggleCamera" class="fi-calls-round">
+            <x-filament::button color="gray" :icon="Heroicon::OutlinedVideoCamera" :icon-alias="Icon::CAMERA_OFF" label-sr-only :tooltip="__('filament-calls::calls.camera_off')" aria-pressed="false" x-show="! cameraOff" x-on:click="toggleCamera" class="fi-calls-round">
                 {{ __('filament-calls::calls.camera_off') }}
             </x-filament::button>
             <x-filament::button color="danger" :icon="Heroicon::OutlinedVideoCameraSlash" :icon-alias="Icon::CAMERA_ON" label-sr-only :tooltip="__('filament-calls::calls.camera_on')" aria-pressed="true" x-show="cameraOff" x-cloak x-on:click="toggleCamera" class="fi-calls-round">
                 {{ __('filament-calls::calls.camera_on') }}
             </x-filament::button>
 
-            <x-filament::button color="primary" :icon="Heroicon::OutlinedComputerDesktop" :icon-alias="Icon::SHARE_SCREEN" label-sr-only :tooltip="__('filament-calls::calls.share_screen')" aria-pressed="false" x-show="state === 'active' && ! sharing" x-on:click="toggleShare" class="fi-calls-round">
+            <x-filament::button color="gray" :icon="Heroicon::OutlinedComputerDesktop" :icon-alias="Icon::SHARE_SCREEN" label-sr-only :tooltip="__('filament-calls::calls.share_screen')" aria-pressed="false" x-show="state === 'active' && ! sharing" x-on:click="toggleShare" class="fi-calls-round">
                 {{ __('filament-calls::calls.share_screen') }}
             </x-filament::button>
             <x-filament::button color="primary" :icon="Heroicon::OutlinedComputerDesktop" :icon-alias="Icon::SHARE_SCREEN" label-sr-only :tooltip="__('filament-calls::calls.stop_sharing')" aria-pressed="true" x-show="state === 'active' && sharing" x-cloak x-on:click="toggleShare" class="fi-calls-round">

@@ -188,9 +188,11 @@
 .fi-calls-tile[data-role="strip"] .fi-calls-tile-name { inset-inline-start: 0.25rem; inset-block-end: 0.25rem; min-height: 0; padding: 0.125rem 0.375rem; font-size: 0.625rem; }
 .fi-calls-tile[data-role="strip"] .fi-calls-badges { display: none; }
 
-/* My own picture stays out of the screen's way: smaller, and at the inline start when the strip is at the end. */
-.fi-calls-stage[data-spotlight] .fi-calls-local { width: 18%; }
-.fi-calls-stage[data-strip="right"] .fi-calls-local { inset-inline-end: auto; inset-inline-start: 0.5rem; }
+/* My own picture stays out of the screen's way: smaller, and at the inline start when the strip is at the end... */
+.fi-calls-stage[data-spotlight] .fi-calls-self { width: 18%; }
+.fi-calls-stage[data-strip="right"] .fi-calls-self { inset-inline-end: auto; inset-inline-start: 0.5rem; }
+/* ... so the shared screen's name moves to the other corner, out from under my picture. */
+.fi-calls-stage[data-strip="right"] .fi-calls-tile[data-role="spotlight"] .fi-calls-tile-name { inset-inline-start: auto; inset-inline-end: 0.5rem; }
 
 /* One tile per other participant: a single one fills the stage, two to four share a 2x2 grid. */
 .fi-calls-grid {
@@ -266,19 +268,64 @@
     justify-content: center;
 }
 
-.fi-calls-local {
+/* My own picture in a corner. The wrapper is the frame, so with the camera off it still shows, with my avatar and
+   my own "Your mic is off" inside it rather than floating over the other person's video. */
+.fi-calls-self {
     position: absolute;
     inset-inline-end: 0.5rem;
     inset-block-end: 0.5rem;
     width: 28%;
     aspect-ratio: 4 / 3;
-    object-fit: cover;
+    overflow: hidden;
     border-radius: 0.5rem;
     background: var(--gray-800);
     box-shadow:
         0 0 0 1px color-mix(in oklab, white 10%, transparent),
         0 4px 6px -1px rgb(0 0 0 / 0.3);
+    pointer-events: none;
 }
+
+.fi-calls-local {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.fi-calls-self-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fi-calls-avatar-sm {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+}
+
+/* My own mute, inside my picture: smaller than the other side's badges, and only the icon when the picture is small. */
+.fi-calls-badge.fi-calls-self-badge {
+    position: absolute;
+    inset-inline-start: 0.25rem;
+    inset-block-end: 0.25rem;
+    max-width: calc(100% - 0.5rem);
+    min-height: 0;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.625rem;
+    white-space: nowrap;
+    background: var(--danger-600);
+}
+
+.fi-calls-self-badge .fi-calls-badge-icon { width: 0.75rem; height: 0.75rem; }
+.fi-calls-self-badge-text { overflow: hidden; text-overflow: ellipsis; }
+.fi-calls-stage[data-spotlight] .fi-calls-self-badge-text { display: none; }
+/* In the small frame of a spotlight stage the avatar shrinks and moves up, clear of the icon-only badge. */
+.fi-calls-stage[data-spotlight] .fi-calls-self-placeholder { align-items: flex-start; padding-block-start: 0.25rem; }
+.fi-calls-stage[data-spotlight] .fi-calls-avatar-sm { width: 1.5rem; height: 1.5rem; font-size: 0.5625rem; }
 
 .fi-calls-mirror { transform: scaleX(-1); }
 .fi-calls-hidden { visibility: hidden; }

@@ -12,6 +12,7 @@ return [
     'window_closed_continuing' => 'The call window closed; the call continues here.',
     'popup_blocked' => 'Pop-ups are blocked here, so the call opens on this page.',
     'peer_muted' => 'Muted',
+    'you_muted' => 'Your mic is off',
     'peer_camera_off' => 'Camera off',
     'peer_sharing' => 'Sharing their screen',
     'accept' => 'Accept',

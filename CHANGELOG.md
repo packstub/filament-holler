@@ -18,6 +18,7 @@ First release: audio, video and screen-share calls between the users of a Filame
 
 - An incoming-call toast with ring tone, Accept and Decline (and how many people are already on); a call window with a tile per other participant (video or avatar, name, "Calling…" until they answer), your own picture mirrored in a corner, a timer, mute, camera off, screen share and hang up; notices for declined, missed, busy and failed calls and for people leaving a group.
 - Everyone sees who muted, turned the camera off or shares the screen. A shared screen takes the stage, shown whole, with the cameras in a strip on top or on the side, wherever the screen gets more room; `filament-calls-sharing` fires on the page when that changes.
+- You see your own state too: a muted microphone or a stopped camera turns its button red (the mic crossed out), and "Your mic is off" sits on your own picture, which keeps its frame with your avatar while your camera is off.
 - Drawn with Filament's own buttons, avatars and icons, in the panel's light or dark theme and colours (only the video stays dark), right-to-left aware; messages are Filament notifications. Every icon has an alias (`FilamentCallsIconAlias`) for `FilamentIcon::register()`.
 - Voice fallback when the camera is missing or busy.
 
