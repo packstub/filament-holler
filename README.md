@@ -181,10 +181,10 @@ FilamentIcon::register([
 | `filament-calls::accept`, `::decline` | incoming call | phone, phone-x-mark |
 | `filament-calls::hang-up` | call window and chip | phone-x-mark |
 | `filament-calls::open-window` | chip | arrow-top-right-on-square |
-| `filament-calls::mute`, `::unmute` | the button that mutes (shown while live), the one that unmutes (shown while muted) | microphone, speaker-x-mark |
+| `filament-calls::mute`, `::unmute` | the button that mutes (shown while live), the one that unmutes (shown while muted) | microphone, a microphone with a slash (Heroicons has none, so the plugin draws it) |
 | `filament-calls::camera-off`, `::camera-on` | the button that turns the camera off (shown while on), the one that turns it on | video-camera, video-camera-slash |
 | `filament-calls::share-screen` | share and stop sharing | computer-desktop |
-| `filament-calls::muted`, `::sharing`, `::camera-off-badge` | badges over someone's video | speaker-x-mark, computer-desktop, video-camera-slash (mini) |
+| `filament-calls::muted`, `::sharing`, `::camera-off-badge` | badges over someone's video, and "Your mic is off" on your own | the microphone with a slash, computer-desktop, video-camera-slash |
 
 The widget is drawn with Filament's own buttons and avatars and follows the panel's theme (light, dark, its colours); only the video stays dark. Its messages ("Call declined", "Ringing Ana…") are Filament notifications.
 
@@ -194,7 +194,7 @@ The widget's labels are in `lang/vendor/filament-calls/en/calls.php` once you pu
 
 ### Polling and configuration
 
-Every open panel tab asks the server for incoming calls every 5 seconds and, during a call, for signals every second; that poll is also the heartbeat that tells the other side you are still there. Tune it in `config/packstub-calls.php` (`CALLS_POLL_IDLE`, `CALLS_POLL_ACTIVE`, in milliseconds), `CALLS_RING_TIMEOUT` (seconds before a call is marked missed, default 45) and `CALLS_RECONNECT_TIMEOUT` (seconds a side may be away before the call ends as lost, default 15).
+Every open panel tab asks the server for incoming calls every 5 seconds and, during a call, for signals every second; that poll is also the heartbeat that tells the other side you are still there. Tune it with `CALLS_POLL_IDLE` and `CALLS_POLL_ACTIVE` (milliseconds), along with `CALLS_RING_TIMEOUT` (seconds before a call is marked missed, default 45) and `CALLS_RECONNECT_TIMEOUT` (seconds a side may be away before the call ends as lost, default 15). The config file is `config/packstub-calls.php`, from `packstub/calls`; publish it only if you want to edit it: `php artisan vendor:publish --tag=calls-config`.
 
 The rest of the config belongs to `packstub/calls` and applies here as documented [in its README](https://github.com/packstub/calls#usage): `CALLS_MAX_SIGNAL_KB` ([polling](https://github.com/packstub/calls#polling-and-timeouts)), `CALLS_DB_CONNECTION` (the central connection under a database per tenant, [several databases](https://github.com/packstub/calls#several-guards-several-databases)) and `CALLS_ICE_TRANSPORT_POLICY` ([ICE servers](https://github.com/packstub/calls#ice-servers-stun--turn)). `CALLS_VIDEO=false` makes every call a voice call; `CALLS_MAX_PARTICIPANTS` and `CALLS_POP_OUT` are defaults that `maxParticipants()` and `popOut()` override (`CALLS_POP_OUT` only matters on panels without SPA mode). Inside a panel the panel's guard is used, not `guard`, and users of two panels on different guards never ring each other.
 
