@@ -112,6 +112,9 @@ test('a call between two people in their pop-outs: connected, reconnected after 
     // Ana mutes and shares her screen: Ion's window says so.
     await anaWindow.getByRole('button', { name: 'Mute', exact: true }).click()
     await expect(ionWindow.locator('[data-peer=muted]')).toBeVisible()
+    // Her own window says so too: the pressed Unmute button, her picture "Your mic is off".
+    await expect(anaWindow.getByRole('button', { name: 'Unmute', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(anaWindow.locator('[data-self=muted]')).toBeVisible()
     await anaWindow.getByRole('button', { name: 'Share screen', exact: true }).click()
     await expect(ionWindow.locator('[data-peer=sharing]')).toBeVisible()
     // Her screen takes Ion's stage whole; with nobody else on the call there is no strip of cameras.
@@ -123,11 +126,24 @@ test('a call between two people in their pop-outs: connected, reconnected after 
     await expect(ionWindow.locator('.fi-calls-stage')).not.toHaveAttribute('data-spotlight')
     await anaWindow.getByRole('button', { name: 'Unmute', exact: true }).click()
     await expect(ionWindow.locator('[data-peer=muted]')).toBeHidden()
+    await expect(anaWindow.locator('[data-self=muted]')).toBeHidden()
+    await expect(anaWindow.getByRole('button', { name: 'Mute', exact: true })).toHaveAttribute('aria-pressed', 'false')
 
     // Ana turns her camera off: Ion sees her avatar instead of a black frame.
     await anaWindow.getByRole('button', { name: 'Turn camera off', exact: true }).click()
     await expect(ionWindow.locator('[data-peer=camera-off]')).toBeVisible()
     await expect(ionWindow.locator('.fi-calls-placeholder')).toBeVisible()
+    // Her own corner keeps its frame with her avatar; muted now, "Your mic is off" sits inside that frame.
+    await expect(anaWindow.locator('[data-self=camera-off]')).toBeVisible()
+    await anaWindow.getByRole('button', { name: 'Mute', exact: true }).click()
+    await expect(anaWindow.locator('[data-self=muted]')).toBeVisible()
+    const selfTile = await anaWindow.locator('[data-self-tile]').boundingBox()
+    const selfBadge = await anaWindow.locator('[data-self=muted]').boundingBox()
+    expect(selfBadge.x).toBeGreaterThanOrEqual(selfTile.x)
+    expect(selfBadge.y + selfBadge.height).toBeLessThanOrEqual(selfTile.y + selfTile.height + 1)
+    await expect(ionWindow.locator('[data-peer=muted]')).toBeVisible()
+    await anaWindow.getByRole('button', { name: 'Unmute', exact: true }).click()
+    await expect(anaWindow.locator('[data-self=muted]')).toBeHidden()
 
     // Ion hangs up: both windows close, both main tabs are idle and say so.
     await Promise.all([

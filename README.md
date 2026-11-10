@@ -1,6 +1,14 @@
 # Filament Calls
 
+<div class="filament-hidden">
+
+![Filament Calls: a group video call in a floating window over a Filament Team page with a Call action on every row](https://raw.githubusercontent.com/packstub/art/main/filament-calls/banner.jpg)
+
+</div>
+
 Audio, video and screen-share calls inside a Filament panel, one on one or in small groups, peer to peer over WebRTC. The media goes straight from one browser to the other; your Laravel app only handles who calls whom and passes the few signaling messages the browsers need to find each other. Polling over plain HTTP, so there is no websocket server to run.
+
+![Ion calls Ana from her row on the Team page, she answers, and the call window shows her video with his in the corner](https://raw.githubusercontent.com/packstub/art/main/filament-calls/docs/calls.gif)
 
 - A `CallAction` for any record that is a user: a table row, a page header, an infolist.
 - A call widget on every page of the panel: an incoming-call toast with Accept and Decline, then a floating window with a tile per other person (their video, or their avatar), yours in a corner, mute, camera off, screen share and hang up. Everyone sees who muted, turned the camera off or shares a screen; a shared screen takes the stage in the other windows, shown whole, with the cameras in a strip on top or on the side, wherever the screen gets more room.

@@ -32,10 +32,32 @@ it('renders the call widget on every panel page with the panel routes, and no IC
         ->assertSee('data-peer="muted"', escape: false)
         ->assertSee('data-peer="sharing"', escape: false)
         ->assertSee('data-peer="camera-off"', escape: false)
+        ->assertSee('data-self="muted"', escape: false)
+        ->assertSee('data-self="camera-off"', escape: false)
+        ->assertSee('Your mic is off')
+        ->assertSee('d="m3 3 18 18"', escape: false)
         ->assertSee('Pop-ups are blocked here')
         ->assertSee('the call continues here');
 
     FilamentCallsPlugin::get()->iceServers(null);
+});
+
+it('shows my avatar in my own corner on a voice-only panel, where my stream has no picture', function (): void {
+    FilamentCallsPlugin::get()->video(false);
+
+    // selfPlaceholder (calls.js) is true with the camera off or without a video track in my stream, so a voice call
+    // shows my avatar rather than an empty dark box; the video under it hides on the same condition.
+    $this->actingAs(user('Ion'))->get('/admin')
+        ->assertOk()
+        ->assertSee('\\u0022video\\u0022:false', escape: false)
+        ->assertSee('x-show="selfPlaceholder"', escape: false)
+        ->assertSee("'fi-calls-hidden': selfPlaceholder", escape: false);
+
+    $js = file_get_contents(__DIR__.'/../../resources/dist/calls.js');
+    expect($js)->toContain('this.localVideo = (stream?.getVideoTracks().length ?? 0) > 0')
+        ->toContain('return (this.cameraOff || ! this.localVideo) && ! this.sharing');
+
+    FilamentCallsPlugin::get()->video(true);
 });
 
 it('hands the engine the transport policy, and the ice route the ICE servers of the panel', function (): void {

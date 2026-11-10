@@ -134,6 +134,8 @@ export default function packstubCalls(config) {
         muted: false,
         cameraOff: false,
         sharing: false,
+        // My own stream has a picture: false on a voice-only call (video(false), or no camera and the voice fallback).
+        localVideo: false,
         // Everyone else on the call: { id, name, avatar, seat, status, alive, connected, muted, cameraOff, sharing, stream, hasVideo }.
         peers: [],
         // Where the cameras go while someone's screen has the stage: 'top' or 'right', whichever leaves the screen more room.
@@ -200,7 +202,10 @@ export default function packstubCalls(config) {
                 this.syncPeers()
                 this.watchWindow()
             })
-            client.addEventListener('localstream', ({ detail: { stream } }) => this.attach(this.$refs.local, stream))
+            client.addEventListener('localstream', ({ detail: { stream } }) => {
+                this.localVideo = (stream?.getVideoTracks().length ?? 0) > 0
+                this.attach(this.$refs.local, stream)
+            })
             // A shared screen takes the stage: the look of every window on the call changes with it.
             client.addEventListener('peerstate', ({ detail: { peer, sharing } }) => {
                 this.syncPeers()
@@ -357,6 +362,11 @@ export default function packstubCalls(config) {
         /** A snapshot of the roster for the tiles. */
         syncPeers() {
             this.peers = client.peers.map((peer) => ({ ...peer, hasVideo: (peer.stream?.getVideoTracks().length ?? 0) > 0 }))
+        },
+
+        /** My own corner shows my avatar instead of a dark box: camera off, or no picture at all, unless I share my screen. */
+        get selfPlaceholder() {
+            return (this.cameraOff || ! this.localVideo) && ! this.sharing
         },
 
         /** This person's video is worth showing: there is one, and it is not a camera they turned off. */
