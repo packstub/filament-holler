@@ -45,7 +45,7 @@ Every open panel tab asks the server for incoming calls every 5 seconds and, dur
 | `CALLS_PRUNE_AFTER_DAYS` | 90 | ended calls older than this go at `calls:prune` |
 | `CALLS_DB_CONNECTION` | default | the central connection, under a database per tenant |
 
-The rest (`CALLS_MAX_SIGNAL_KB`, the guard) is documented in [Calls for Laravel](https://github.com/packstub/calls#usage). Inside a panel the panel's guard is used.
+The limits on signals (`CALLS_MAX_SIGNAL_KB`, `CALLS_MAX_PENDING_SIGNALS`) and the rest of the file are documented in [Calls for Laravel](https://packstub.dev/docs/calls/configuration). Its `guard` key does not apply here: inside a panel the panel's guard is used.
 
 ## Events and the call log
 
@@ -56,7 +56,7 @@ Event::listen(CallEnded::class, function (CallEnded $event) {
     $event->call->caller_id;     // user ids as strings
     $event->call->callee_id;     // the first person called
     $event->call->participants;  // everyone, with seat, status and times
-    $event->call->end_reason;    // declined | cancelled | missed | hung_up | failed | dropped
+    $event->call->end_reason;    // declined | cancelled | missed | hung_up | dropped
     $event->call->duration();    // seconds, null if never answered
 });
 ```

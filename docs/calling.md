@@ -44,7 +44,7 @@ FilamentCallsPlugin::make()
 Whatever the closure says:
 
 - nobody calls themselves;
-- someone who cannot open the panel (`canAccessPanel()`) is never callable;
+- someone who cannot open the panel is never callable: the user model's `canAccessPanel()` decides, and a model without `FilamentUser` counts only in the `local` environment, as in Filament itself;
 - on a panel that requires a verified email, someone who has not verified theirs is never callable.
 
 The check runs on the server when a call starts and when someone is added to one; the Call button follows the same rule. `FilamentCallsPlugin::sharesTenant($caller, $callee, $panel)` is the tenant check on its own, for code of your own. The caller's tenants are read once per request; `FilamentCallsPlugin::flushTenantCache()` forgets them after you change someone's tenants mid-request. In a table of Call buttons on a panel with tenancy, eager-load the users' tenants:

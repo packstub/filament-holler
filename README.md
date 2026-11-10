@@ -4,25 +4,36 @@
 
 ![Filament Calls: a group video call in a floating window over a Filament Team page with a Call action on every row](https://raw.githubusercontent.com/packstub/art/main/filament-calls/banner.jpg)
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/packstub/filament-calls.svg?style=flat-square)](https://packagist.org/packages/packstub/filament-calls)
+[![Tests](https://img.shields.io/github/actions/workflow/status/packstub/filament-calls/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/packstub/filament-calls/actions/workflows/tests.yml)
+[![Total Downloads](https://img.shields.io/packagist/dt/packstub/filament-calls.svg?style=flat-square)](https://packagist.org/packages/packstub/filament-calls)
+[![License](https://img.shields.io/packagist/l/packstub/filament-calls.svg?style=flat-square)](https://github.com/packstub/filament-calls/blob/main/LICENSE.md)
+[![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/icaliman)
+
 </div>
 
-Audio, video and screen-share calls inside a Filament panel, one on one or in small groups, peer to peer over WebRTC. The media goes straight from one browser to the other; your Laravel app only handles who calls whom and passes the few signaling messages the browsers need to find each other. Polling over plain HTTP, so there is no websocket server to run.
+Audio, video and screen-share calls between the users of a Filament panel, one on one or in groups of up to four, peer to peer over WebRTC. The media goes straight from one browser to the other; your Laravel app only handles who calls whom, over plain HTTP polling, so there is no websocket server to run.
 
 ![Ion calls Ana from her row on the Team page, she answers, and the call window shows her video with his in the corner](https://raw.githubusercontent.com/packstub/art/main/filament-calls/docs/calls.gif)
 
-- A `CallAction` for any record that is a user: a table row, a page header, an infolist.
-- A call widget on every page of the panel: an incoming-call toast with Accept and Decline, then a floating window with a tile per other person (their video, or their avatar), yours in a corner, mute, camera off, screen share and hang up. Everyone sees who muted, turned the camera off or shares a screen; a shared screen takes the stage in the other windows, shown whole, with the cameras in a strip on top or on the side, wherever the screen gets more room.
-- Group calls up to four: on a call, the same Call button adds that person to it. The browsers connect to each other directly, no media server; someone who hangs up leaves the call for the others.
-- The call follows the person around the panel: in its own small pop-out window (the main tab can go anywhere, reload or close), or in the page itself in SPA mode. A full page load mid-call reconnects within a few seconds instead of dropping it.
-- Voice fallback when there is no camera; a voice-only mode per panel.
-- `canCall()` to decide who may call whom; `CallStarted`, `CallAnswered`, `ParticipantJoined`, `ParticipantLeft`, `CallEnded` events and `calls` and `call_participants` tables with durations for a call log.
-- STUN out of the box, your own TURN server through four env variables for networks where a direct path fails (the relay only forwards encrypted packets).
-- Built on [Calls for Laravel](https://github.com/packstub/calls) (the signaling backend, installed with this package) and [`@packstub/calls`](https://github.com/packstub/calls-js) (the browser engine, bundled). Both work without Filament too.
+## Features
 
-## Requirements
+- **[A Call button for any user](#the-call-action)**: `CallAction` on a table row, a page header or an infolist.
+- **[A call widget on every page](#the-call-widget)**: an incoming-call toast, then a floating window with mute, camera, screen share and hang up, in the panel's theme.
+- **[Group calls](#group-calls)**: on a call, the same button adds someone to it, up to four people.
+- **[Calls that survive a page load](#where-the-call-lives)**: in a pop-out window, or in the page itself in SPA mode; a reload reconnects within seconds.
+- **[Who may call whom](#who-may-call-whom)**: `canCall()`, tenant-aware by default, checked on the server.
+- **[STUN and TURN](#stun-and-turn)**: STUN out of the box, your own TURN relay through env variables or per panel.
+- **[Your icons and texts](#customizing)**: every icon has an alias, every label a translation, and the engine takes options.
+- **[A call log](#events-and-the-call-log)**: events and tables with durations, ready for a resource of your own.
 
-- PHP 8.3+, Laravel 12 or 13, Filament 4.13.3+ or 5.8.3+
-- Browsers with WebRTC (every current one); the panel served over HTTPS (or `localhost`), as `getUserMedia` needs a secure context
+## Compatibility
+
+| Plugin | Filament | Laravel | PHP |
+| --- | --- | --- | --- |
+| 1.x | 4.13.3+, 5.8.3+ | 12.69+, 13.30+ | 8.3+ |
+
+Calls run in every current browser (WebRTC). The panel must be served over HTTPS, or from `localhost`, since the camera and microphone need a secure context.
 
 ## Installation
 
@@ -47,11 +58,17 @@ public function panel(Panel $panel): Panel
 }
 ```
 
-That adds the widget to every page of the panel and the signaling routes under `/{panel}/filament-calls/calls/`, behind the panel's auth middleware. The tables, model, events and config file come from `packstub/calls`, which Composer installs alongside.
+That adds the call widget to every page of the panel and the signaling routes under `/{panel}/filament-calls/calls/`, behind the panel's auth. The tables, model, events and config file come from [Calls for Laravel](https://github.com/packstub/calls), which Composer installs alongside. Then schedule its cleanup:
 
-## Usage
+```php
+Schedule::command('calls:prune')->daily();
+```
 
-Put a `CallAction` where the record is a user (an `Authenticatable`):
+Read more: [Installation](https://packstub.dev/docs/filament-calls/installation).
+
+## The Call action
+
+Put a `CallAction` where the record is a user:
 
 ```php
 use Packstub\FilamentCalls\Actions\CallAction;
@@ -62,167 +79,109 @@ use Packstub\FilamentCalls\Actions\CallAction;
 ])
 
 // A page header, calling a related user
-protected function getHeaderActions(): array
-{
-    return [
-        CallAction::make()->user(fn () => $this->record->assignee),
-    ];
-}
+CallAction::make()->user(fn () => $this->record->assignee)
 ```
 
-The button hides itself for the signed-in user. Clicking it rings the other person: their open panel tabs show a toast with the caller's name and avatar (the panel's own `getUserName()` / `getUserAvatarUrl()`), they accept, and the two browsers connect.
+The button only shows for someone the signed-in user may call, never for themselves. Clicking it rings the other person: their open panel tabs show a toast with the caller's name and avatar, they accept, and the two browsers connect.
 
-### Who may call whom
+Read more: [Calling](https://packstub.dev/docs/filament-calls/calling).
 
-By default any two users who can open the panel can call each other, and on a panel with tenancy only two who share a tenant (the call routes carry no tenant, so the plugin compares the two people's tenants). Narrow it:
+## The call widget
+
+The plugin draws one widget on every page for signed-in users: the incoming-call toast with Accept and Decline, then a floating window with a tile per other person, your own picture in a corner, and buttons to mute, turn the camera off, share your screen and hang up. A shared screen takes the stage in the other windows. The widget is drawn with Filament's own buttons and avatars and follows the panel's theme, light or dark; its messages are Filament notifications.
+
+Read more: [The call](https://packstub.dev/docs/filament-calls/the-call).
+
+## Who may call whom
+
+By default any two users who can open the panel can call each other, and on a panel with tenancy only two who share a tenant. Narrow it:
 
 ```php
 FilamentCallsPlugin::make()
     ->canCall(fn (User $caller, User $callee): bool => $caller->team_id === $callee->team_id)
 ```
 
-A closure replaces the tenant rule; take `bool $sharesTenant` to keep it and add your own (`fn (User $callee, bool $sharesTenant): bool => $sharesTenant && $callee->is_active`). `FilamentCallsPlugin::sharesTenant($caller, $callee, $panel)` is the same check, for code of your own; the caller's tenants are read once per request, and `FilamentCallsPlugin::flushTenantCache()` forgets them after you change someone's tenants mid-request. Someone who cannot open the panel is never callable, whatever the closure says; on a panel that requires a verified email (`->emailVerification(isRequired: true)`) or multi-factor authentication, the call routes and the widget ask for them like the panel's pages do, and someone who has not verified their email cannot be called. The check runs on the server when a call starts, and the Call button only shows for people the signed-in user may call. In a table of Call buttons on a panel with tenancy, eager-load the users' tenants (`->modifyQueryUsing(fn ($query) => $query->with('teams'))`).
+Add a `bool $sharesTenant` parameter to the closure to keep the tenant rule and add your own. The check runs on the server when a call starts and when someone is added to one, for every pair of people on the call. Someone who cannot open the panel, or has not verified the email the panel requires, is never callable.
 
-### Group calls
+Read more: [Who may call whom](https://packstub.dev/docs/filament-calls/calling#who-may-call-whom).
 
-While on a call, clicking Call on another person adds them to it: they get the usual toast (with how many people are already on), and once they accept everyone connects to them. The window shows a tile per other participant, two by two. Four people on a call is the default limit; the browsers connect to each other directly, so each uploads its media once per other participant, and four is where that stops being comfortable on ordinary connections.
+## Group calls
+
+While on a call, clicking Call on another person adds them to it. Once they accept, everyone connects to them, and the window shows a tile per other participant. The browsers connect to each other directly, so four people is the default limit:
 
 ```php
 FilamentCallsPlugin::make()->maxParticipants(3)   // or CALLS_MAX_PARTICIPANTS in .env
 ```
 
-Someone who hangs up leaves the call for the others (the rest see "… left the call"); the call ends once one person is left. To go beyond four, give the engine a `topology` for an SFU in place of the mesh through the `filament-calls-configure` event (see [Engine options](#engine-options)); the interface is in [`@packstub/calls`](https://github.com/packstub/calls-js).
+Someone who hangs up leaves the call for the others. `->video(false)` makes the panel's calls voice calls; either side can still share their screen.
 
-### Voice calls
+Read more: [Group calls](https://packstub.dev/docs/filament-calls/calling#group-calls).
 
-```php
-FilamentCallsPlugin::make()->video(false)
-```
+## Where the call lives
 
-Calls then start with the microphone only. Either side can still share the screen.
-
-### Where the call lives
-
-A browser tears down a WebRTC connection on every full page load, so the plugin keeps the call somewhere a page load cannot reach:
-
-- **Pop-out window** (default for panels without SPA mode): Call and Accept open the call in a small browser window of its own. The main tab shows a chip with the other person's name and the timer, a button to bring the window back and one to hang up, and is free to navigate, reload or close. Reloading the pop-out itself reconnects the call; closing it hands the call back to the main tab, which continues it in the page. If the browser blocks the pop-out, the call opens in the page instead, with a short notice.
-
-  The pop-out's address names the call (`…/filament-calls/window?call=12`) or the person to ring (`?callee=5`), but an address alone never rings anyone or answers a call: the page that opens the window leaves a one-time token in `localStorage` (valid for 60 seconds, read once) and the pop-out acts only when it finds it. Opened from a link or a bookmark, `?call=` shows the call with Accept when it is ringing you (or continues a call you are already on) and `?callee=` does nothing.
-- **In the page** (default in SPA mode, `->spa()`): the widget is kept across `wire:navigate` page changes, so the call simply continues. A full page load (F5, a link outside the panel) reconnects it: the other side sees "Reconnecting…" for a few seconds, then the video is back.
-
-Pick explicitly when the default is not what you want:
+A browser closes a WebRTC connection on every full page load, so the plugin keeps the call where a page load does not end it. On panels without SPA mode, Call and Accept open the call in a small window of its own, and the main tab shows a chip with the timer while it navigates, reloads or closes. In SPA mode the call stays in the page across `wire:navigate`, and a full page load reconnects it within a few seconds.
 
 ```php
-FilamentCallsPlugin::make()
-    ->popOut()        // always a pop-out, also in SPA mode
-    ->popOut(false)   // always in the page; full page loads reconnect
-    ->popOut(fn (): bool => ! request()->userAgent() /* or any rule */)
+FilamentCallsPlugin::make()->popOut()        // always a pop-out, also in SPA mode
+FilamentCallsPlugin::make()->popOut(false)   // always in the page
 ```
 
-When one side stays away longer than `reconnect_timeout` (15 s by default) the call ends as lost.
+Read more: [Where the call lives](https://packstub.dev/docs/filament-calls/the-call#where-the-call-lives).
 
-### ICE servers (STUN / TURN)
+## STUN and TURN
 
-Most calls connect directly with a STUN server, which is what the default config uses. Calls behind strict NATs, VPNs or corporate firewalls need a TURN relay; point the plugin at yours (coturn, or a hosted service):
+Most calls connect directly with the default STUN server. Calls behind strict NATs or corporate firewalls need a TURN relay; point the plugin at yours:
 
 ```dotenv
-CALLS_STUN_URL=stun:stun.l.google.com:19302
 CALLS_TURN_URL=turn:turn.example.com:3478
 CALLS_TURN_USERNAME=...
 CALLS_TURN_CREDENTIAL=...
 ```
 
-Or per panel, for example with short-lived TURN credentials:
+Or per panel with `->iceServers(fn () => [...])`, for short-lived credentials: the browsers ask for them each time a call starts. `CALLS_ICE_TRANSPORT_POLICY=relay` sends every call through the relay, so nobody sees anybody else's network address.
+
+Read more: [ICE servers](https://packstub.dev/docs/filament-calls/configuration#ice-servers-stun--turn).
+
+## Customizing
+
+Every icon in the widget has an alias for `FilamentIcon::register()`, the labels are translations (`php artisan vendor:publish --tag=filament-calls-translations`), and a `filament-calls-configure` event hands a script the engine's options before the widget starts, for example a media server in place of the mesh.
+
+Read more: [Customizing](https://packstub.dev/docs/filament-calls/customizing).
+
+## Events and the call log
+
+`CallStarted`, `CallAnswered`, `ParticipantJoined`, `ParticipantLeft` and `CallEnded` fire for every step, and `Packstub\Calls\Models\Call` is a plain Eloquent model with its participants, `end_reason` and `duration()`, ready for a resource of your own.
+
+Read more: [Events and the call log](https://packstub.dev/docs/filament-calls/configuration#events-and-the-call-log).
+
+## Configuration
+
+The plugin's options are set per panel:
 
 ```php
-FilamentCallsPlugin::make()->iceServers(fn () => [
-    ['urls' => 'turn:turn.example.com:3478', 'username' => $user, 'credential' => $password],
-])
+FilamentCallsPlugin::make()
+    ->canCall(fn (User $caller, User $callee): bool => true)
+    ->maxParticipants(4)
+    ->video(true)
+    ->popOut(null)               // null: a pop-out unless the panel runs in SPA mode
+    ->iceServers(fn () => [...]);
 ```
 
-The browsers ask for these each time a call starts (the `ice` route, `GET /{panel}/filament-calls/calls/ice-servers`), never when the page loads: a closure with short-lived credentials is called per call, the credentials never sit in the page's HTML, and a tab left open all day still gets fresh ones. `CALLS_ICE_TRANSPORT_POLICY=relay` sends every call through the TURN server, so nobody sees anybody else's IP address.
+Everything else is in `config/packstub-calls.php`, from Calls for Laravel, and reads env variables: `CALLS_POLL_IDLE`, `CALLS_POLL_ACTIVE`, `CALLS_RING_TIMEOUT`, `CALLS_RECONNECT_TIMEOUT`, `CALLS_PRUNE_AFTER_DAYS`, `CALLS_DB_CONNECTION` and the STUN and TURN variables above.
 
-A TURN relay forwards packets it cannot decrypt (WebRTC media is DTLS-SRTP end to end), so "the media never touches our servers" stays true in spirit; be accurate about it in your own privacy copy.
+Read more: [Configuration](https://packstub.dev/docs/filament-calls/configuration).
 
-### Engine options
+## Documentation
 
-The widget builds the engine (`CallClient` from [`@packstub/calls`](https://github.com/packstub/calls-js)) once per page. Just before, it fires `filament-calls-configure` on `window` with the options object as `detail`: whatever a script changes there is what the engine gets.
+Full docs at [packstub.dev/docs/filament-calls](https://packstub.dev/docs/filament-calls):
 
-```js
-window.addEventListener('filament-calls-configure', ({ detail: options }) => {
-    options.topology = (call) => new MySfuTopology(call)   // an SFU instead of the mesh
-    options.reconnectTimeout = 30000
-})
-```
+- [Installation](https://packstub.dev/docs/filament-calls/installation)
+- [Calling](https://packstub.dev/docs/filament-calls/calling): the Call action, who may call whom, tenancy, group calls, voice calls, page events
+- [The call](https://packstub.dev/docs/filament-calls/the-call): the widget, the pop-out window and SPA mode, keyboard and screen readers
+- [Customizing](https://packstub.dev/docs/filament-calls/customizing): icons, texts and translations, engine options
+- [Configuration](https://packstub.dev/docs/filament-calls/configuration): ICE servers, polling and timeouts, events and the call log
 
-Register it before the widget loads, for example in a script added through `FilamentAsset::register()` or a `HEAD_END` render hook.
-
-### Page events
-
-- `filament-calls-call` on `window` with `{ user }` rings that user, or adds them to the call you are on: it is what `CallAction` dispatches, so any button or script can do the same (`$dispatch('filament-calls-call', { user: 5 })` in Alpine).
-- `filament-calls-sharing` bubbles from the widget with `{ peer, sharing, spotlight }` when someone's screen starts or stops taking the stage, for anything else on the page that wants to react.
-
-### Icons
-
-Every icon in the widget has an alias, so a panel can swap it with Filament's `FilamentIcon::register()`; the aliases are constants on `Packstub\FilamentCalls\View\FilamentCallsIconAlias`:
-
-```php
-use Filament\Support\Facades\FilamentIcon;
-use Filament\Support\Icons\Heroicon;
-use Packstub\FilamentCalls\View\FilamentCallsIconAlias;
-
-FilamentIcon::register([
-    FilamentCallsIconAlias::HANG_UP => Heroicon::OutlinedXCircle,
-]);
-```
-
-| Alias | Where | Default |
-| --- | --- | --- |
-| `filament-calls::accept`, `::decline` | incoming call | phone, phone-x-mark |
-| `filament-calls::hang-up` | call window and chip | phone-x-mark |
-| `filament-calls::open-window` | chip | arrow-top-right-on-square |
-| `filament-calls::mute`, `::unmute` | the button that mutes (shown while live), the one that unmutes (shown while muted) | microphone, a microphone with a slash (Heroicons has none, so the plugin draws it) |
-| `filament-calls::camera-off`, `::camera-on` | the button that turns the camera off (shown while on), the one that turns it on | video-camera, video-camera-slash |
-| `filament-calls::share-screen` | share and stop sharing | computer-desktop |
-| `filament-calls::muted`, `::sharing`, `::camera-off-badge` | badges over someone's video, and "Your mic is off" on your own | the microphone with a slash, computer-desktop, video-camera-slash |
-
-The widget is drawn with Filament's own buttons and avatars and follows the panel's theme (light, dark, its colours); only the video stays dark. Its messages ("Call declined", "Ringing Ana…") are Filament notifications.
-
-### Texts
-
-The widget's labels are in `lang/vendor/filament-calls/en/calls.php` once you publish them (`php artisan vendor:publish --tag=filament-calls-translations`); the server's own messages ("This person is on another call.") come from `packstub/calls` (`--tag=calls-translations`).
-
-### Polling and configuration
-
-Every open panel tab asks the server for incoming calls every 5 seconds and, during a call, for signals every second; that poll is also the heartbeat that tells the other side you are still there. Tune it with `CALLS_POLL_IDLE` and `CALLS_POLL_ACTIVE` (milliseconds), along with `CALLS_RING_TIMEOUT` (seconds before a call is marked missed, default 45) and `CALLS_RECONNECT_TIMEOUT` (seconds a side may be away before the call ends as lost, default 15). The config file is `config/packstub-calls.php`, from `packstub/calls`; publish it only if you want to edit it: `php artisan vendor:publish --tag=calls-config`.
-
-The rest of the config belongs to `packstub/calls` and applies here as documented [in its README](https://github.com/packstub/calls#usage): `CALLS_MAX_SIGNAL_KB` ([polling](https://github.com/packstub/calls#polling-and-timeouts)), `CALLS_DB_CONNECTION` (the central connection under a database per tenant, [several databases](https://github.com/packstub/calls#several-guards-several-databases)) and `CALLS_ICE_TRANSPORT_POLICY` ([ICE servers](https://github.com/packstub/calls#ice-servers-stun--turn)). `CALLS_VIDEO=false` makes every call a voice call; `CALLS_MAX_PARTICIPANTS` and `CALLS_POP_OUT` are defaults that `maxParticipants()` and `popOut()` override (`CALLS_POP_OUT` only matters on panels without SPA mode). Inside a panel the panel's guard is used, not `guard`, and users of two panels on different guards never ring each other.
-
-Schedule the core's cleanup, which ends calls everybody walked away from and deletes ended ones older than `CALLS_PRUNE_AFTER_DAYS` (90):
-
-```php
-Schedule::command('calls:prune')->daily();
-```
-
-### Events and the call log
-
-```php
-use Packstub\Calls\Events\CallEnded;
-
-Event::listen(CallEnded::class, function (CallEnded $event) {
-    $event->call->caller_id;     // user ids as strings
-    $event->call->callee_id;     // the first person called
-    $event->call->participants;  // everyone, with seat, status and times
-    $event->call->end_reason;    // declined | cancelled | missed | hung_up | failed | dropped
-    $event->call->duration();    // seconds, null if never answered
-});
-```
-
-`Packstub\Calls\Models\Call` is a plain Eloquent model over the `calls` table, ready for a resource of your own.
-
-## Outside Filament
-
-The panel is a thin layer. [`packstub/calls`](https://github.com/packstub/calls) is the server side on its own (`Calls::routes()`, the `Calls` service, a `CallContext` for who is who and who may call whom) and [`@packstub/calls`](https://github.com/packstub/calls-js) the browser engine (`CallClient`, `HttpSignaling`), for a Laravel app without Filament or another backend speaking the same nine endpoints. This plugin binds a `PanelContext` that answers from the current panel (its guard, `getUserName()` / `getUserAvatarUrl()`, the plugin's `canCall()`, `iceServers()`, `video()` and `maxParticipants()`), registers the routes under the panel, and ships the widget, the `CallAction` and the pop-out window.
+The plugin is the panel side of [Calls for Laravel](https://packstub.dev/docs/calls), the signaling backend, and [`@packstub/calls`](https://github.com/packstub/calls-js), the browser engine. Both work without Filament too.
 
 ## Testing
 
@@ -236,8 +195,17 @@ Open the workbench twice, as two different people, on two hostnames (`localhost`
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md).
+See [CHANGELOG.md](https://github.com/packstub/filament-calls/blob/main/CHANGELOG.md).
+
+## Security
+
+If you discover a security issue, email [security@packstub.dev](mailto:security@packstub.dev) instead of using the issue tracker. See [SECURITY.md](https://github.com/packstub/filament-calls/blob/main/.github/SECURITY.md).
+
+## Credits
+
+- [Ion Caliman](https://github.com/icaliman)
+- [All contributors](https://github.com/packstub/filament-calls/contributors)
 
 ## License
 
-MIT, see [LICENSE.md](LICENSE.md).
+MIT. See [LICENSE.md](https://github.com/packstub/filament-calls/blob/main/LICENSE.md).

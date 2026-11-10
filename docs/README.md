@@ -5,7 +5,7 @@ Audio, video and screen-share calls between the users of a Filament panel, one o
 - Repository: [github.com/packstub/filament-calls](https://github.com/packstub/filament-calls)
 - Packagist: [packstub/filament-calls](https://packagist.org/packages/packstub/filament-calls)
 - Support: [GitHub issues](https://github.com/packstub/filament-calls/issues)
-- Built on: [Calls for Laravel](https://github.com/packstub/calls) (the signaling backend, installed with this package) and [`@packstub/calls`](https://github.com/packstub/calls-js) (the browser engine, bundled)
+- Built on: [Calls for Laravel](https://packstub.dev/docs/calls) (the signaling backend, installed with this package) and [`@packstub/calls`](https://github.com/packstub/calls-js) (the browser engine, bundled)
 
 ![Ion calls Ana from her row on the Team page, she answers, and the call window shows her video with his in the corner](https://raw.githubusercontent.com/packstub/art/main/filament-calls/docs/calls.gif)
 
