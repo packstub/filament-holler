@@ -56,9 +56,13 @@
     x-load-src="{{ FilamentAsset::getAlpineComponentSrc('calls', 'packstub/filament-calls') }}"
     x-load-css="[@js(FilamentAsset::getStyleHref('calls', 'packstub/filament-calls'))]"
     x-data="packstubCalls(@js($config))"
+    x-effect="popup && (document.title = windowTitle)"
     x-cloak
     @class(['fi-calls', 'fi-calls-popup' => $popup])
 >
+    {{-- Read out by screen readers when a call comes in: the card below does not take the focus. --}}
+    <div class="fi-calls-sr-only" aria-live="assertive" aria-atomic="true" x-text="announcement"></div>
+
     {{-- Incoming call --}}
     <div
         x-show="state === 'ringing'"
@@ -91,7 +95,7 @@
     </div>
 
     {{-- The call lives in the pop-out window: a chip with the essentials --}}
-    <div x-show="state === 'elsewhere'" x-transition class="fi-calls-card fi-calls-incoming fi-calls-chip">
+    <div x-show="state === 'elsewhere'" x-transition class="fi-calls-card fi-calls-incoming fi-calls-chip" role="region" aria-labelledby="fi-calls-chip-name">
         <div class="fi-calls-person">
             <template x-if="call?.peer?.avatar">
                 <x-filament::avatar x-bind:src="call.peer.avatar" size="lg" class="fi-calls-avatar" />
@@ -100,7 +104,7 @@
                 <span class="fi-calls-avatar fi-calls-avatar-initials" x-text="initials(call?.peer?.name)"></span>
             </template>
             <div class="fi-calls-person-text">
-                <div class="fi-calls-name" x-text="names"></div>
+                <div class="fi-calls-name" id="fi-calls-chip-name" x-text="names"></div>
                 <div class="fi-calls-muted" x-text="status"></div>
             </div>
         </div>
@@ -115,9 +119,9 @@
     </div>
 
     {{-- The call --}}
-    <div x-show="inCall" x-transition class="fi-calls-card fi-calls-window">
+    <div x-show="inCall" x-transition class="fi-calls-card fi-calls-window" role="region" aria-labelledby="fi-calls-window-name">
         <div class="fi-calls-header">
-            <div class="fi-calls-name" x-text="names"></div>
+            <div class="fi-calls-name" id="fi-calls-window-name" x-text="names"></div>
             <div class="fi-calls-muted" x-text="status"></div>
         </div>
 
@@ -184,24 +188,24 @@
              state, so each has its own icon and label; x-show switches between them. Off is grey,
              on stands out: a muted mic or a stopped camera turns red, a shared screen primary. --}}
         <div class="fi-calls-controls">
-            <x-filament::button color="gray" :icon="Heroicon::OutlinedMicrophone" :icon-alias="Icon::MUTE" label-sr-only :tooltip="__('filament-calls::calls.mute')" aria-pressed="false" x-show="! muted" x-on:click="toggleMute" class="fi-calls-round">
+            <x-filament::button color="gray" :icon="Heroicon::OutlinedMicrophone" :icon-alias="Icon::MUTE" label-sr-only :tooltip="__('filament-calls::calls.mute')" data-calls-toggle="mute" aria-pressed="false" x-show="! muted" x-on:click="toggleMute" class="fi-calls-round">
                 {{ __('filament-calls::calls.mute') }}
             </x-filament::button>
-            <x-filament::button color="danger" :icon="$micOff" :icon-alias="Icon::UNMUTE" label-sr-only :tooltip="__('filament-calls::calls.unmute')" aria-pressed="true" x-show="muted" x-cloak x-on:click="toggleMute" class="fi-calls-round">
+            <x-filament::button color="danger" :icon="$micOff" :icon-alias="Icon::UNMUTE" label-sr-only :tooltip="__('filament-calls::calls.unmute')" data-calls-toggle="mute" aria-pressed="true" x-show="muted" x-cloak x-on:click="toggleMute" class="fi-calls-round">
                 {{ __('filament-calls::calls.unmute') }}
             </x-filament::button>
 
-            <x-filament::button color="gray" :icon="Heroicon::OutlinedVideoCamera" :icon-alias="Icon::CAMERA_OFF" label-sr-only :tooltip="__('filament-calls::calls.camera_off')" aria-pressed="false" x-show="! cameraOff" x-on:click="toggleCamera" class="fi-calls-round">
+            <x-filament::button color="gray" :icon="Heroicon::OutlinedVideoCamera" :icon-alias="Icon::CAMERA_OFF" label-sr-only :tooltip="__('filament-calls::calls.camera_off')" data-calls-toggle="camera" aria-pressed="false" x-show="! cameraOff" x-on:click="toggleCamera" class="fi-calls-round">
                 {{ __('filament-calls::calls.camera_off') }}
             </x-filament::button>
-            <x-filament::button color="danger" :icon="Heroicon::OutlinedVideoCameraSlash" :icon-alias="Icon::CAMERA_ON" label-sr-only :tooltip="__('filament-calls::calls.camera_on')" aria-pressed="true" x-show="cameraOff" x-cloak x-on:click="toggleCamera" class="fi-calls-round">
+            <x-filament::button color="danger" :icon="Heroicon::OutlinedVideoCameraSlash" :icon-alias="Icon::CAMERA_ON" label-sr-only :tooltip="__('filament-calls::calls.camera_on')" data-calls-toggle="camera" aria-pressed="true" x-show="cameraOff" x-cloak x-on:click="toggleCamera" class="fi-calls-round">
                 {{ __('filament-calls::calls.camera_on') }}
             </x-filament::button>
 
-            <x-filament::button color="gray" :icon="Heroicon::OutlinedComputerDesktop" :icon-alias="Icon::SHARE_SCREEN" label-sr-only :tooltip="__('filament-calls::calls.share_screen')" aria-pressed="false" x-show="state === 'active' && ! sharing" x-on:click="toggleShare" class="fi-calls-round">
+            <x-filament::button color="gray" :icon="Heroicon::OutlinedComputerDesktop" :icon-alias="Icon::SHARE_SCREEN" label-sr-only :tooltip="__('filament-calls::calls.share_screen')" data-calls-toggle="share" aria-pressed="false" x-show="state === 'active' && ! sharing" x-on:click="toggleShare" class="fi-calls-round">
                 {{ __('filament-calls::calls.share_screen') }}
             </x-filament::button>
-            <x-filament::button color="primary" :icon="Heroicon::OutlinedComputerDesktop" :icon-alias="Icon::SHARE_SCREEN" label-sr-only :tooltip="__('filament-calls::calls.stop_sharing')" aria-pressed="true" x-show="state === 'active' && sharing" x-cloak x-on:click="toggleShare" class="fi-calls-round">
+            <x-filament::button color="primary" :icon="Heroicon::OutlinedComputerDesktop" :icon-alias="Icon::SHARE_SCREEN" label-sr-only :tooltip="__('filament-calls::calls.stop_sharing')" data-calls-toggle="share" aria-pressed="true" x-show="state === 'active' && sharing" x-cloak x-on:click="toggleShare" class="fi-calls-round">
                 {{ __('filament-calls::calls.stop_sharing') }}
             </x-filament::button>
 

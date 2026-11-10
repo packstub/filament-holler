@@ -329,3 +329,28 @@ test('a name with markup in a notification stays text', async () => {
     await expect(notification).toContainText(text)
     await expect(notification.locator('a, b')).toHaveCount(0)
 })
+
+test('a call for the keyboard and the screen reader: announced, titled, and the focus stays on a toggle', async () => {
+    const ionWindow = await ring(ion)
+    await expect(ana.locator('[aria-live=assertive]')).toHaveText('Ion Caliman is calling you', { timeout: 30_000 })
+
+    const anaWindow = await answer(ana)
+    await expectActive(anaWindow)
+    await expect(anaWindow).toHaveTitle(/^Ion Caliman · Call/)
+    await expect(ana.getByRole('region', { name: 'Ion Caliman' })).toBeVisible()
+
+    // Mute and unmute from the keyboard: the button that takes the clicked one's place has the focus.
+    await anaWindow.getByRole('button', { name: 'Mute', exact: true }).focus()
+    await anaWindow.keyboard.press('Enter')
+    await expect(anaWindow.getByRole('button', { name: 'Unmute', exact: true })).toBeFocused()
+    await anaWindow.keyboard.press('Enter')
+    await expect(anaWindow.getByRole('button', { name: 'Mute', exact: true })).toBeFocused()
+    await anaWindow.getByRole('button', { name: 'Turn camera off', exact: true }).focus()
+    await anaWindow.keyboard.press('Enter')
+    await expect(anaWindow.getByRole('button', { name: 'Turn camera on', exact: true })).toBeFocused()
+
+    await Promise.all([
+        ionWindow.waitForEvent('close'),
+        anaWindow.locator('.fi-calls-window').getByRole('button', { name: 'Hang up', exact: true }).click(),
+    ])
+})

@@ -452,17 +452,30 @@ export default function packstubCalls(config) {
             }
         },
 
+        /**
+         * Each toggle is two buttons, one per state, and the one clicked hides: the focus moves
+         * to the one that takes its place, so a keyboard user keeps their spot.
+         */
+        keepFocus(name) {
+            if (document.activeElement?.closest?.('[data-calls-toggle]')?.dataset.callsToggle !== name) return
+            this.$nextTick(() => [...this.$root.querySelectorAll(`[data-calls-toggle="${name}"]`)]
+                .find((button) => button.style.display !== 'none')?.focus())
+        },
+
         toggleMute() {
+            this.keepFocus('mute')
             this.muted = ! this.muted
             client.setMuted(this.muted)
         },
 
         toggleCamera() {
+            this.keepFocus('camera')
             this.cameraOff = ! this.cameraOff
             client.setCameraOff(this.cameraOff)
         },
 
         async toggleShare() {
+            const focused = document.activeElement?.closest?.('[data-calls-toggle]')?.dataset.callsToggle === 'share'
             try {
                 if (client.sharing) await client.stopSharing()
                 else await client.shareScreen()
@@ -470,6 +483,7 @@ export default function packstubCalls(config) {
                 // The person cancelled the picker.
             }
             this.sharing = client.sharing
+            if (focused) this.keepFocus('share')
         },
 
         attach(video, stream) {
@@ -524,6 +538,16 @@ export default function packstubCalls(config) {
         /** On an incoming call: how many people are on it besides the one calling me. */
         get others() {
             return Math.max(0, this.peers.length - 1)
+        },
+
+        /** What a screen reader says when a call comes in ("Ion is calling you"). */
+        get announcement() {
+            return this.state === 'ringing' && this.call?.peer?.name ? fill(config.labels.incoming_from, { name: this.call.peer.name }) : ''
+        },
+
+        /** The pop-out's title: who the call is with. */
+        get windowTitle() {
+            return this.names ? `${this.names} · ${config.labels.call}` : config.labels.call
         },
 
         get othersLabel() {

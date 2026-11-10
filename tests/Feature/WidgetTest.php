@@ -35,6 +35,9 @@ it('renders the call widget on every panel page with the panel routes, and no IC
         ->assertSee('data-self="muted"', escape: false)
         ->assertSee('data-self="camera-off"', escape: false)
         ->assertSee('Your mic is off')
+        ->assertSee('data-calls-toggle="mute"', escape: false)
+        ->assertSee('aria-live="assertive"', escape: false)
+        ->assertSee('role="region" aria-labelledby="fi-calls-window-name"', escape: false)
         ->assertSee('d="m3 3 18 18"', escape: false)
         ->assertSee('Pop-ups are blocked here')
         ->assertSee('the call continues here');
