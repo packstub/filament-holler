@@ -93,7 +93,7 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
 
 ## Release checklist
 
-The three repos go out together as 1.0.0, in this order; the human does these steps (agents never tag, publish or change visibility). Each CHANGELOG keeps `## Unreleased` until then: rename it to `## 1.0.0 — <date>` in the release commit, and the tag's release workflow takes the notes from it.
+The three repos go out together as 1.0.0, in this order; the human does these steps (agents never tag, publish or change visibility). Each CHANGELOG keeps `## Unreleased` until then: rename it to `## 1.0.0 — <date>` in the release commit, and the tag's release workflow takes the notes from it. Keep the section short and human, since the workflow appends GitHub's list of merged pull requests under it: an optional lead sentence, then at most about six one-line bullets saying what a user gets, in plain words (class or method names only when a user needs the name, never lists of them). Always keep breaking changes with an `**Upgrading:**` line, security or privacy fixes, new minimum versions and migrations to run; CI, tests and refactors stay out.
 
 1. **`packstub/calls-js`**: make the repo public; set `"version": "1.0.0"` in `package.json`; `npm pack --dry-run` (expect `src/index.js`, `src/widget.js`, `src/widget.css`, README, LICENSE, CHANGELOG); `npm publish` (`publishConfig.access` is public); tag `v1.0.0`.
 2. **`packstub/calls`**: make the repo public; in `package.json` change the dev dependency `github:packstub/calls-js` to `^1.0`, `npm install`, `npm run build:js` and check that `resources/dist` did not change (it must equal calls-js `src/` at the tag); tag `v1.0.0`; submit the repo to Packagist and check that the GitHub hook updates it.
