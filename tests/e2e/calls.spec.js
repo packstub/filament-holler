@@ -335,6 +335,7 @@ test('a call for the keyboard and the screen reader: announced, titled, and the 
     await expect(ana.locator('[aria-live=assertive]')).toHaveText('Ion Caliman is calling you', { timeout: 30_000 })
 
     const anaWindow = await answer(ana)
+    await expectActive(ionWindow)
     await expectActive(anaWindow)
     await expect(anaWindow).toHaveTitle(/^Ion Caliman · Call/)
     await expect(ana.getByRole('region', { name: 'Ion Caliman' })).toBeVisible()
@@ -353,4 +354,20 @@ test('a call for the keyboard and the screen reader: announced, titled, and the 
         ionWindow.waitForEvent('close'),
         anaWindow.locator('.fi-calls-window').getByRole('button', { name: 'Hang up', exact: true }).click(),
     ])
+})
+
+test('after a reload of the main tab, "Open the call window" brings the pop-out back without reloading it', async () => {
+    const ionWindow = await ring(ion)
+    await answer(ana)
+    await expectActive(ionWindow)
+
+    await ion.reload()
+    await expect.poll(() => state(ion), { timeout: 30_000 }).toBe('elsewhere')
+    await ionWindow.evaluate(() => { window.stillTheSamePage = true })
+
+    await ion.locator('.fi-calls-chip').getByRole('button', { name: 'Open the call window', exact: true }).click()
+    await ion.waitForTimeout(1000)
+    expect(await ionWindow.evaluate(() => window.stillTheSamePage)).toBe(true)
+    expect(await state(ionWindow)).toBe('active')
+    expect(ion.context().pages()).toHaveLength(2)
 })

@@ -410,8 +410,25 @@ export default function packstubCalls(config) {
 
         /** Bring the pop-out back; open it again if it was closed, or continue the call here when that is blocked. */
         focusWindow() {
-            if (popup && ! popup.closed) popup.focus()
+            popup = popup && ! popup.closed ? popup : this.findWindow()
+            if (popup) popup.focus()
             else if (this.call && ! this.openWindow({ call: this.call.id })) this.takeBack()
+        },
+
+        /**
+         * The pop-out this tab opened before a reload: the reference is gone, the window is not.
+         * Asked for by name with no address, so it is not navigated (that would reload the call);
+         * a blank window means there was none, and openWindow() then uses that one.
+         */
+        findWindow() {
+            try {
+                const found = window.open('', 'filament-calls', 'popup=yes,width=460,height=620')
+                const path = new URL(config.windowUrl, location.href).pathname
+
+                return found && found.location.pathname === path ? found : null
+            } catch {
+                return null
+            }
         },
 
         /**
