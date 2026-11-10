@@ -90,3 +90,39 @@ it('follows the core\'s pop_out config unless the plugin says otherwise', functi
     FilamentCallsPlugin::get()->popOut(true);
     expect(FilamentCallsPlugin::get()->isPopOut())->toBeTrue();
 });
+
+it('keeps the calls of a panel that requires a verified email to people who verified theirs', function (): void {
+    $panel = Filament::getPanel('verified');
+    Filament::setCurrentPanel($panel);
+    $this->ana->markEmailAsVerified();
+
+    // The routes ask what the panel's pages ask: an unverified caller never reaches them.
+    $this->actingAs($this->ion)
+        ->getJson($panel->route('filament-calls.poll'))
+        ->assertForbidden();
+    $this->actingAs($this->ion)
+        ->postJson($panel->route('filament-calls.store'), ['callee' => $this->ana->getKey()])
+        ->assertForbidden();
+    expect(Calls::openCallsOf((string) $this->ana->getKey()))->toBeEmpty();
+
+    // Nor rings someone who has not verified (a sign-up with somebody else's address).
+    Filament::setCurrentPanel($panel);
+    expect(FilamentCallsPlugin::get()->isCallAllowed($this->ana, $this->ion))->toBeFalse();
+    $this->ion->markEmailAsVerified();
+    expect(FilamentCallsPlugin::get()->isCallAllowed($this->ana, $this->ion))->toBeTrue();
+
+    // The widget stays off the verify-your-email page.
+    $this->actingAs(user('Mihai'))
+        ->get($panel->getEmailVerificationPromptUrl())
+        ->assertOk()
+        ->assertDontSee('packstubCalls(', escape: false);
+
+    // On the panel without the requirement nothing changes.
+    expect(FilamentCallsPlugin::routeMiddleware(Filament::getPanel('admin')))->toBe([]);
+});
+
+it('asks for multi-factor authentication on the call routes where the panel requires it', function (): void {
+    $panel = Panel::make()->id('mfa')->multiFactorAuthentication([], isRequired: true);
+
+    expect(FilamentCallsPlugin::routeMiddleware($panel))->toBe([$panel->getMultiFactorAuthenticationRequiredMiddleware()]);
+});

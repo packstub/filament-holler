@@ -11,6 +11,7 @@ use Filament\Panel;
 use Filament\Support\Concerns\EvaluatesClosures;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
 use Packstub\Calls\Facades\Calls;
@@ -51,8 +52,9 @@ class FilamentCallsPlugin implements Plugin
 
     /**
      * Decide who may call whom. Receives the caller and the callee. Whatever it
-     * says, nobody calls themselves or someone who cannot open the panel; without
-     * it, two users of a panel with tenancy must share a tenant.
+     * says, nobody calls themselves, someone who cannot open the panel or someone
+     * who has not verified the email the panel requires; without it, two users of
+     * a panel with tenancy must share a tenant.
      */
     public function canCall(?Closure $callback): static
     {
@@ -123,8 +125,9 @@ class FilamentCallsPlugin implements Plugin
 
         $panel = Filament::getCurrentOrDefaultPanel();
 
-        // Only someone who can open this panel, the way Filament's own middleware decides.
-        if ($panel && ! static::canAccess($callee, $panel)) {
+        // Only someone who can open this panel, the way Filament's own middleware decides,
+        // and who has verified their email where the panel requires it.
+        if ($panel && (! static::canAccess($callee, $panel) || static::mustVerifyEmail($callee, $panel))) {
             return false;
         }
 
@@ -203,13 +206,58 @@ class FilamentCallsPlugin implements Plugin
     public function register(Panel $panel): void
     {
         $panel
-            ->authenticatedRoutes(function (): void {
-                // The core's nine signaling routes, behind the panel's auth and CSRF, plus the pop-out page.
-                Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.', window: false);
-                Route::get('filament-calls/window', WindowController::class)->name('filament-calls.window');
+            ->authenticatedRoutes(function (Panel $panel): void {
+                // The core's nine signaling routes, behind the panel's auth and CSRF, plus the pop-out page;
+                // like the panel's own pages, only for someone who verified their email and set up
+                // multi-factor authentication where the panel requires it.
+                Route::middleware(static::routeMiddleware($panel))->group(function (): void {
+                    Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.', window: false);
+                    Route::get('filament-calls/window', WindowController::class)->name('filament-calls.window');
+                });
             })
-            // Only for a signed-in user: the login page has nobody to call or to be called by.
-            ->renderHook(PanelsRenderHook::BODY_END, fn (): string => Filament::auth()->check() ? view('filament-calls::widget')->render() : '');
+            ->renderHook(PanelsRenderHook::BODY_END, fn (): string => static::shouldRenderWidget() ? view('filament-calls::widget')->render() : '');
+    }
+
+    /**
+     * What the panel's own pages ask of a signed-in user before they open: a verified email
+     * and multi-factor authentication set up, each where the panel requires it.
+     *
+     * @return array<int, string>
+     */
+    public static function routeMiddleware(Panel $panel): array
+    {
+        return [
+            ...($panel->isEmailVerificationRequired() ? [$panel->getEmailVerifiedMiddleware()] : []),
+            ...($panel->isMultiFactorAuthenticationRequired() ? [$panel->getMultiFactorAuthenticationRequiredMiddleware()] : []),
+        ];
+    }
+
+    /**
+     * The widget is for someone who can use the panel: signed in (the login page has nobody to
+     * call), with the email verified where the panel asks for it, and not on the pages that
+     * stand between a new account and the panel (verify your email, set up two-factor).
+     */
+    protected static function shouldRenderWidget(): bool
+    {
+        $user = Filament::auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (request()->routeIs('*.auth.email-verification.*', '*.auth.multi-factor-authentication.*')) {
+            return false;
+        }
+
+        return ! static::mustVerifyEmail($user, Filament::getCurrentOrDefaultPanel());
+    }
+
+    /** Whether the panel requires a verified email and this person has not verified theirs yet. */
+    protected static function mustVerifyEmail(Authenticatable $user, ?Panel $panel): bool
+    {
+        return $panel?->isEmailVerificationRequired()
+            && $user instanceof MustVerifyEmail
+            && ! $user->hasVerifiedEmail();
     }
 
     public function boot(Panel $panel): void {}
