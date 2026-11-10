@@ -22,9 +22,10 @@ async function signIn(context, email) {
         await page.locator('input[type=password]').press('Enter')
         const signedIn = await page.waitForURL('**/admin', { timeout: 10_000 }).then(() => true, () => false)
         if (signedIn) break
-        if (attempt === 4) throw new Error(`Could not sign in as ${email}`)
+        if (attempt === 6) throw new Error(`Could not sign in as ${email}`)
+        // The throttle's notification may not be on the page yet: without its number, wait a while anyway.
         const throttled = (await page.locator('body').innerText()).match(/try again in (\d+) seconds/i)
-        if (throttled) await page.waitForTimeout((Number(throttled[1]) + 1) * 1000)
+        await page.waitForTimeout(throttled ? (Number(throttled[1]) + 1) * 1000 : 15_000)
     }
 
     await page.goto('/admin/users')
