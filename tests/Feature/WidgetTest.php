@@ -28,7 +28,7 @@ it('renders the call widget on every panel page with the panel routes, and no IC
         ->assertSee($js(url('/admin/filament-calls/calls/__ID__/invite')), escape: false)
         ->assertSee('\\u0022maxParticipants\\u0022:4', escape: false)
         ->assertSee('data-peer-id', escape: false)
-        ->assertSee('x-persist="filament-calls"', escape: false)
+        ->assertSee('x-persist="filament-calls.admin"', escape: false)
         ->assertSee('data-peer="muted"', escape: false)
         ->assertSee('data-peer="sharing"', escape: false)
         ->assertSee('data-peer="camera-off"', escape: false)
@@ -146,4 +146,13 @@ it('shows a Call button on every other user in a table and hands it the user id'
         ->assertTableActionVisible('call', $ana)
         ->assertTableActionHidden('call', $ion)
         ->assertSee("\$dispatch('filament-calls-call', { user: '{$ana->getKey()}' })", escape: false);
+});
+
+it('keeps one widget per panel across SPA page loads, with that panel\'s routes', function (): void {
+    $ion = tap(user('Ion'))->markEmailAsVerified();
+
+    $this->actingAs($ion)->get('/verified')
+        ->assertOk()
+        ->assertSee('x-persist="filament-calls.verified"', escape: false)
+        ->assertSee(str_replace('/', '\\\\\\/', url('/verified/filament-calls/calls/poll')), escape: false);
 });
