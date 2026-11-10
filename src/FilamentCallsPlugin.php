@@ -166,7 +166,9 @@ class FilamentCallsPlugin implements Plugin
 
         $current = Filament::getTenant();
 
-        if ($current && $callee->canAccessTenant($current)) {
+        // Both in the tenant being viewed: the caller is when they are the one signed in, but
+        // the core also asks between two other people on a group call.
+        if ($current && $caller->canAccessTenant($current) && $callee->canAccessTenant($current)) {
             return true;
         }
 

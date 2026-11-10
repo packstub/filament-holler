@@ -74,6 +74,37 @@ it('asks two users of a panel with tenancy to share a tenant', function (): void
     expect(FilamentCallsPlugin::get()->isCallAllowed($this->ion, $this->ana))->toBeTrue();
 });
 
+it('does not take the tenant being viewed as shared when only the callee is in it', function (): void {
+    $tenantOf = fn (int $id) => tap(new class extends Model {}, fn (Model $model) => $model->forceFill(['id' => $id]));
+    $member = fn (array $tenants) => new class($tenants) extends User implements HasTenants
+    {
+        public function __construct(public array $tenantList = [])
+        {
+            parent::__construct();
+        }
+
+        public function getTenants(Panel $panel): Collection
+        {
+            return collect($this->tenantList);
+        }
+
+        public function canAccessTenant(Model $tenant): bool
+        {
+            return collect($this->tenantList)->contains(fn (Model $mine) => $mine->getKey() === $tenant->getKey());
+        }
+    };
+
+    $panel = Filament::getPanel('admin');
+    Filament::setTenant($tenantOf(1), isQuiet: true);
+    FilamentCallsPlugin::flushTenantCache();
+
+    // The core asks between two people on a group call, neither of them necessarily the one signed in.
+    expect(FilamentCallsPlugin::sharesTenant($member([$tenantOf(2)]), $member([$tenantOf(1)]), $panel))->toBeFalse()
+        ->and(FilamentCallsPlugin::sharesTenant($member([$tenantOf(1)]), $member([$tenantOf(1)]), $panel))->toBeTrue();
+
+    Filament::setTenant(null, isQuiet: true);
+});
+
 it('keeps the calls of a panel in its guard', function (): void {
     expect(Calls::context()->scope())->toBe(Filament::getPanel('admin')->getAuthGuard());
 
