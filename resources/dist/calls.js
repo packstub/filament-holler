@@ -30,6 +30,14 @@ function fill(label, values) {
 }
 
 /**
+ * Plain text for a Filament notification, whose title is HTML (sanitized, but a name like
+ * `<a href=…>` would still come out as a link): every message here is text.
+ */
+function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
+}
+
+/**
  * What this pop-out was opened for. `trusted` only when the page that opened it left the
  * matching one-time token in localStorage: a link someone sent cannot ring anybody or
  * answer a call by itself.
@@ -493,7 +501,7 @@ export default function packstubCalls(config) {
             if (! text) return
 
             if (window.FilamentNotification && document.querySelector('.fi-no')) {
-                const notification = new window.FilamentNotification().title(text)
+                const notification = new window.FilamentNotification().title(escapeHtml(text))
                 ;(status === 'info' ? notification.info() : notification.warning()).send()
                 return
             }

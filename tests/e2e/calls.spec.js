@@ -320,3 +320,12 @@ test('a pop-out link alone neither rings anyone nor answers a call', async () =>
     await expectActive(anaLink)
     await expectActive(ionWindow)
 })
+
+test('a name with markup in a notification stays text', async () => {
+    const text = 'Dana <a href="https://example.com">Popa</a> & <b>Co</b> left the call'
+    await ion.evaluate(([selector, text]) => Alpine.$data(document.querySelector(selector)).show(text, 'info'), [WIDGET, text])
+
+    const notification = ion.locator('.fi-no-notification').filter({ hasText: 'Dana' })
+    await expect(notification).toContainText(text)
+    await expect(notification.locator('a, b')).toHaveCount(0)
+})
