@@ -126,3 +126,14 @@ it('asks for multi-factor authentication on the call routes where the panel requ
 
     expect(FilamentCallsPlugin::routeMiddleware($panel))->toBe([$panel->getMultiFactorAuthenticationRequiredMiddleware()]);
 });
+
+it('keeps the Call button hidden for someone the user may not call, whatever visible() the app adds', function (): void {
+    $this->actingAs($this->ion);
+    FilamentCallsPlugin::get()->canCall(fn (User $callee): bool => $callee->name !== 'Ana');
+
+    expect(CallAction::make()->user($this->ana)->visible(true)->isVisible())->toBeFalse()
+        ->and(CallAction::make()->user($this->ion)->visible(fn (): bool => true)->isVisible())->toBeFalse()
+        ->and(CallAction::make()->user(user('Mihai'))->visible(true)->isVisible())->toBeTrue()
+        ->and(CallAction::make()->user(user('Dana'))->visible(false)->isVisible())->toBeFalse()
+        ->and(CallAction::make()->user(user('Radu'))->hidden()->isVisible())->toBeFalse();
+});

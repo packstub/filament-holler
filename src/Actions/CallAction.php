@@ -32,26 +32,33 @@ class CallAction extends Action
         $this->icon(Heroicon::OutlinedPhone);
         $this->color('primary');
 
-        // Closures take the injected $action, not $this: a table clones the action per row,
-        // and a closure bound to the original would never see the row's record.
-        // Nobody calls themselves, and only Authenticatable records can be called.
-        // Only where the panel runs the plugin, and for someone the signed-in user may call.
-        $this->visible(function (CallAction $action): bool {
-            $user = $action->getUser();
-            $me = Filament::auth()->user();
-            $panel = Filament::getCurrentOrDefaultPanel();
-
-            if (! $user || ! $me || ! $panel?->hasPlugin('filament-calls')) {
-                return false;
-            }
-
-            /** @var FilamentCallsPlugin $plugin */
-            $plugin = $panel->getPlugin('filament-calls');
-
-            return $plugin->isCallAllowed($me, $user);
-        });
-
         $this->alpineClickHandler(fn (CallAction $action): string => '$dispatch(\'filament-calls-call\', { user: '.Js::from((string) $action->getUser()?->getAuthIdentifier()).' })');
+    }
+
+    /**
+     * Shown only where the panel runs the plugin, for another user the signed-in one may call;
+     * an app's own `visible()` or `hidden()` narrows that further and never widens it.
+     */
+    protected function resolveIsHiddenInGroup(): bool
+    {
+        return parent::resolveIsHiddenInGroup() || ! $this->canCallUser();
+    }
+
+    /** Whether the signed-in user may call this action's user (nobody calls themselves). */
+    public function canCallUser(): bool
+    {
+        $user = $this->getUser();
+        $me = Filament::auth()->user();
+        $panel = Filament::getCurrentOrDefaultPanel();
+
+        if (! $user || ! $me || ! $panel?->hasPlugin('filament-calls')) {
+            return false;
+        }
+
+        /** @var FilamentCallsPlugin $plugin */
+        $plugin = $panel->getPlugin('filament-calls');
+
+        return $plugin->isCallAllowed($me, $user);
     }
 
     /** The user to call; defaults to the action's record. */
