@@ -1,7 +1,7 @@
 laravel: '@testbench'
 
 env:
-  - APP_NAME="Filament Calls"
+  - APP_NAME="Filament Holler"
   - APP_KEY=base64:2fl+Ktv6fZ7c7ZQfF1Zt6Q0Wd9jz5bJ6rKq8nX0m3Yk=
   - APP_DEBUG=true
   - CACHE_STORE=file
@@ -23,8 +23,8 @@ providers:
   - Filament\Tables\TablesServiceProvider
   - Filament\Widgets\WidgetsServiceProvider
   - Livewire\LivewireServiceProvider
-  - Packstub\Calls\CallsServiceProvider
-  - Packstub\FilamentCalls\FilamentCallsServiceProvider
+  - Packstub\Holler\HollerServiceProvider
+  - Packstub\FilamentHoller\FilamentHollerServiceProvider
   - Workbench\App\Providers\AdminPanelProvider
 
 seeders:

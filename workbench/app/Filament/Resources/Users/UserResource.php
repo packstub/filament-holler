@@ -6,7 +6,7 @@ use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Packstub\FilamentCalls\Actions\CallAction;
+use Packstub\FilamentHoller\Actions\CallAction;
 use Workbench\App\Filament\Resources\Users\Pages\ListUsers;
 use Workbench\App\Models\User;
 

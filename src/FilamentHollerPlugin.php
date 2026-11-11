@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\FilamentCalls;
+namespace Packstub\FilamentHoller;
 
 use Closure;
 use Filament\Contracts\Plugin;
@@ -14,10 +14,10 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
-use Packstub\Calls\Facades\Calls;
-use Packstub\FilamentCalls\Http\WindowController;
+use Packstub\FilamentHoller\Http\WindowController;
+use Packstub\Holler\Facades\Holler;
 
-class FilamentCallsPlugin implements Plugin
+class FilamentHollerPlugin implements Plugin
 {
     use EvaluatesClosures;
 
@@ -47,7 +47,7 @@ class FilamentCallsPlugin implements Plugin
 
     public function getId(): string
     {
-        return 'filament-calls';
+        return 'filament-holler';
     }
 
     /**
@@ -107,14 +107,14 @@ class FilamentCallsPlugin implements Plugin
 
     public function getMaxParticipants(): int
     {
-        return max(2, (int) ($this->evaluate($this->maxParticipants) ?? config('packstub-calls.max_participants', 4)));
+        return max(2, (int) ($this->evaluate($this->maxParticipants) ?? config('holler.max_participants', 4)));
     }
 
     public function isPopOut(): bool
     {
-        // An SPA panel keeps the call across pages by itself; elsewhere the core's `pop_out` (CALLS_POP_OUT) decides.
+        // An SPA panel keeps the call across pages by itself; elsewhere the core's `pop_out` (HOLLER_POP_OUT) decides.
         return $this->evaluate($this->popOut)
-            ?? (! Filament::getCurrentOrDefaultPanel()->hasSpaMode() && (bool) config('packstub-calls.pop_out', true));
+            ?? (! Filament::getCurrentOrDefaultPanel()->hasSpaMode() && (bool) config('holler.pop_out', true));
     }
 
     public function isCallAllowed(Authenticatable $caller, Authenticatable $callee): bool
@@ -173,7 +173,7 @@ class FilamentCallsPlugin implements Plugin
         }
 
         // Kept on the request, so a long-running worker (Octane) never carries it to the next one.
-        $cacheKey = 'filament-calls.tenants.'.$panel->getId().'|'.$caller::class.':'.$caller->getAuthIdentifier();
+        $cacheKey = 'filament-holler.tenants.'.$panel->getId().'|'.$caller::class.':'.$caller->getAuthIdentifier();
         $mine = request()->attributes->get($cacheKey);
 
         if ($mine === null) {
@@ -188,7 +188,7 @@ class FilamentCallsPlugin implements Plugin
     public static function flushTenantCache(): void
     {
         foreach (array_keys(request()->attributes->all()) as $key) {
-            if (str_starts_with((string) $key, 'filament-calls.tenants.')) {
+            if (str_starts_with((string) $key, 'filament-holler.tenants.')) {
                 request()->attributes->remove($key);
             }
         }
@@ -197,12 +197,12 @@ class FilamentCallsPlugin implements Plugin
     /** @return array<int, array<string, mixed>> */
     public function getIceServers(): array
     {
-        return $this->evaluate($this->iceServers) ?? config('packstub-calls.ice_servers', []);
+        return $this->evaluate($this->iceServers) ?? config('holler.ice_servers', []);
     }
 
     public function hasVideo(): bool
     {
-        return (bool) $this->evaluate($this->video) && config('packstub-calls.video', true);
+        return (bool) $this->evaluate($this->video) && config('holler.video', true);
     }
 
     public function register(Panel $panel): void
@@ -213,11 +213,11 @@ class FilamentCallsPlugin implements Plugin
                 // like the panel's own pages, only for someone who verified their email and set up
                 // multi-factor authentication where the panel requires it.
                 Route::middleware(static::routeMiddleware($panel))->group(function (): void {
-                    Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.', window: false);
-                    Route::get('filament-calls/window', WindowController::class)->name('filament-calls.window');
+                    Holler::routes(prefix: 'filament-holler/calls', middleware: [], as: 'filament-holler.', window: false);
+                    Route::get('filament-holler/window', WindowController::class)->name('filament-holler.window');
                 });
             })
-            ->renderHook(PanelsRenderHook::BODY_END, fn (): string => static::shouldRenderWidget() ? view('filament-calls::widget')->render() : '');
+            ->renderHook(PanelsRenderHook::BODY_END, fn (): string => static::shouldRenderWidget() ? view('filament-holler::widget')->render() : '');
     }
 
     /**

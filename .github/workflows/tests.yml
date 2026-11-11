@@ -8,10 +8,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# The plugin requires packstub/calls through a path repository (`../calls`, see
-# composer.json) and, for the end-to-end job's npm install, packstub/calls-js. Both
-# repos are private: read-only deploy keys (secrets CALLS_DEPLOY_KEY and
-# CALLS_JS_DEPLOY_KEY) check them out. Once packstub/calls is on Packagist, CI can
+# The plugin requires packstub/holler through a path repository (`../holler`, see
+# composer.json) and, for the end-to-end job's npm install, packstub/holler-js. Both
+# repos are private: read-only deploy keys (secrets HOLLER_DEPLOY_KEY and
+# HOLLER_JS_DEPLOY_KEY) check them out. Once packstub/holler is on Packagist, CI can
 # install it from there instead.
 
 jobs:
@@ -40,21 +40,21 @@ jobs:
 
     defaults:
       run:
-        working-directory: filament-calls
+        working-directory: filament-holler
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: filament-calls
+          path: filament-holler
 
-      - name: Checkout packstub/calls
+      - name: Checkout packstub/holler
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: packstub/calls
+          repository: packstub/holler
           ref: main
-          ssh-key: ${{ secrets.CALLS_DEPLOY_KEY }}
-          path: calls
+          ssh-key: ${{ secrets.HOLLER_DEPLOY_KEY }}
+          path: holler
 
       - name: Setup PHP ${{ matrix.php }}
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
@@ -71,7 +71,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-php${{ matrix.php }}-laravel${{ matrix.laravel }}-filament${{ matrix.filament }}-${{ matrix.dependencies }}-${{ hashFiles('filament-calls/composer.json') }}
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-laravel${{ matrix.laravel }}-filament${{ matrix.filament }}-${{ matrix.dependencies }}-${{ hashFiles('filament-holler/composer.json') }}
           restore-keys: |
             composer-${{ runner.os }}-php${{ matrix.php }}-
 
@@ -92,21 +92,21 @@ jobs:
 
     defaults:
       run:
-        working-directory: filament-calls
+        working-directory: filament-holler
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: filament-calls
+          path: filament-holler
 
-      - name: Checkout packstub/calls
+      - name: Checkout packstub/holler
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: packstub/calls
+          repository: packstub/holler
           ref: main
-          ssh-key: ${{ secrets.CALLS_DEPLOY_KEY }}
-          path: calls
+          ssh-key: ${{ secrets.HOLLER_DEPLOY_KEY }}
+          path: holler
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
@@ -120,13 +120,13 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: filament-calls/package-lock.json
+          cache-dependency-path: filament-holler/package-lock.json
 
-      # npm ci clones @packstub/calls from the private packstub/calls-js over SSH.
-      - name: Load the calls-js deploy key
+      # npm ci clones @packstub/holler from the private packstub/holler-js over SSH.
+      - name: Load the holler-js deploy key
         run: |
           eval "$(ssh-agent -s)"
-          ssh-add - <<< "${{ secrets.CALLS_JS_DEPLOY_KEY }}"
+          ssh-add - <<< "${{ secrets.HOLLER_JS_DEPLOY_KEY }}"
           echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
           echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
           mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -145,5 +145,5 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-test-results
-          path: filament-calls/test-results
+          path: filament-holler/test-results
           retention-days: 7

@@ -1,7 +1,7 @@
 /**
- * packstub/filament-calls — the call widget in the panel.
+ * packstub/filament-holler — the call widget in the panel.
  *
- * A thin Alpine component over @packstub/calls (../calls-core.js: Filament publishes Alpine components one folder
+ * A thin Alpine component over @packstub/holler (../holler-core.js: Filament publishes Alpine components one folder
  * deeper than plain JS assets): the core owns WebRTC and signaling, this file draws the state,
  * plays the ring and opens the pop-out window. Hand-written ES module, no build step (the core is
  * copied by `composer build:js`).
@@ -13,7 +13,7 @@
 // The engine is imported with this file's own `?v=` query (Filament adds the package version to the
 // component URL), so a new release never runs a new widget against a cached old engine. Top-level
 // await is fine: Filament's x-load imports this module and waits for it.
-const { CallClient, HttpSignaling } = await import(new URL('../calls-core.js', import.meta.url).href + new URL(import.meta.url).search)
+const { CallClient, HttpSignaling } = await import(new URL('../holler-core.js', import.meta.url).href + new URL(import.meta.url).search)
 
 const ACTIVE_STATES = ['calling', 'connecting', 'active', 'reconnecting']
 
@@ -21,7 +21,7 @@ const ACTIVE_STATES = ['calling', 'connecting', 'active', 'reconnecting']
 const TAKE_BACK_DELAY = 3000
 
 // What the opening page leaves in localStorage for the pop-out: { call, callee, at }, read once.
-const OPEN_TOKEN_KEY = 'packstub-calls:open:'
+const OPEN_TOKEN_KEY = 'holler:open:'
 const OPEN_TOKEN_TTL = 60000
 
 /** `:name` and the like in a label, taken literally (a `$` in someone's name stays a `$`). */
@@ -122,7 +122,7 @@ function sweepTokens() {
     }
 }
 
-export default function packstubCalls(config) {
+export default function packstubHoller(config) {
     let client = null
     let clock = null
     let popup = null
@@ -130,7 +130,7 @@ export default function packstubCalls(config) {
     let resizeObserver = null
     let closeTimer = null
     let clockSince = null
-    // Who is sharing a screen, so `filament-calls-sharing` fires only when that changes (a mute is a peerstate too).
+    // Who is sharing a screen, so `filament-holler-sharing` fires only when that changes (a mute is a peerstate too).
     const sharingPeers = new Map()
     const ring = ringer()
 
@@ -176,7 +176,7 @@ export default function packstubCalls(config) {
             }
 
             // The last word for the page: a script may change the options (a `topology` for an SFU, `channels`…).
-            window.dispatchEvent(new CustomEvent('filament-calls-configure', { detail: options }))
+            window.dispatchEvent(new CustomEvent('filament-holler-configure', { detail: options }))
 
             client = new CallClient(options)
 
@@ -219,7 +219,7 @@ export default function packstubCalls(config) {
                 this.syncPeers()
                 if ((sharingPeers.get(peer.id) ?? false) === sharing) return
                 sharingPeers.set(peer.id, sharing)
-                this.$dispatch('filament-calls-sharing', { peer, sharing, spotlight: this.spotlight })
+                this.$dispatch('filament-holler-sharing', { peer, sharing, spotlight: this.spotlight })
             })
             // The roster, who is connected, muted or sharing, and whose media arrived: one event, the tiles follow.
             client.addEventListener('peers', () => this.syncPeers())
@@ -248,14 +248,14 @@ export default function packstubCalls(config) {
                     client.stop()
                     return
                 }
-                console.warn('[filament-calls]', error)
+                console.warn('[filament-holler]', error)
                 if (media) this.show(config.labels.no_media)
                 // The server's own words for a refusal it explains (not allowed, full); nothing raw from a crash.
                 else if (error?.reason && error.status >= 400 && error.status < 500) this.show(error.message)
             })
 
             this.onCall = (event) => this.start(event.detail?.user)
-            window.addEventListener('filament-calls-call', this.onCall)
+            window.addEventListener('filament-holler-call', this.onCall)
 
             // A full page load: let go of the call so this or the next page can pick it up again.
             this.onLeave = () => client.leave()
@@ -294,7 +294,7 @@ export default function packstubCalls(config) {
 
         destroy() {
             resizeObserver?.disconnect()
-            window.removeEventListener('filament-calls-call', this.onCall)
+            window.removeEventListener('filament-holler-call', this.onCall)
             window.removeEventListener('pagehide', this.onLeave)
             this.stopClock()
             clearTimeout(takeBackTimer)
@@ -399,7 +399,7 @@ export default function packstubCalls(config) {
                 // No storage: the pop-out shows the call and waits for a click.
             }
 
-            popup = window.open(url, 'filament-calls', 'popup=yes,width=460,height=620')
+            popup = window.open(url, 'filament-holler', 'popup=yes,width=460,height=620')
             popup?.focus()
             if (! popup) {
                 try { localStorage.removeItem(key) } catch {}
@@ -422,7 +422,7 @@ export default function packstubCalls(config) {
          */
         findWindow() {
             try {
-                const found = window.open('', 'filament-calls', 'popup=yes,width=460,height=620')
+                const found = window.open('', 'filament-holler', 'popup=yes,width=460,height=620')
                 const path = new URL(config.windowUrl, location.href).pathname
 
                 return found && found.location.pathname === path ? found : null
@@ -474,8 +474,8 @@ export default function packstubCalls(config) {
          * to the one that takes its place, so a keyboard user keeps their spot.
          */
         keepFocus(name) {
-            if (document.activeElement?.closest?.('[data-calls-toggle]')?.dataset.callsToggle !== name) return
-            this.$nextTick(() => [...this.$root.querySelectorAll(`[data-calls-toggle="${name}"]`)]
+            if (document.activeElement?.closest?.('[data-holler-toggle]')?.dataset.hollerToggle !== name) return
+            this.$nextTick(() => [...this.$root.querySelectorAll(`[data-holler-toggle="${name}"]`)]
                 .find((button) => button.style.display !== 'none')?.focus())
         },
 
@@ -492,7 +492,7 @@ export default function packstubCalls(config) {
         },
 
         async toggleShare() {
-            const focused = document.activeElement?.closest?.('[data-calls-toggle]')?.dataset.callsToggle === 'share'
+            const focused = document.activeElement?.closest?.('[data-holler-toggle]')?.dataset.hollerToggle === 'share'
             try {
                 if (client.sharing) await client.stopSharing()
                 else await client.shareScreen()

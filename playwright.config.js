@@ -6,7 +6,7 @@ import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-const PORT = Number(process.env.CALLS_E2E_PORT || 8787)
+const PORT = Number(process.env.HOLLER_E2E_PORT || 8787)
 const BASE_URL = `http://127.0.0.1:${PORT}`
 
 /**
@@ -14,7 +14,7 @@ const BASE_URL = `http://127.0.0.1:${PORT}`
  * `getUserMedia` hangs: one second of silence (16 kHz, 16-bit mono).
  */
 function silentWav() {
-    const path = join(tmpdir(), 'filament-calls-e2e-mic.wav')
+    const path = join(tmpdir(), 'filament-holler-e2e-mic.wav')
     const sampleRate = 16000
     const samples = sampleRate
     const data = Buffer.alloc(samples * 2)

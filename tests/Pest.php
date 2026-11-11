@@ -1,7 +1,7 @@
 <?php
 
-use Packstub\FilamentCalls\Tests\Fixtures\User;
-use Packstub\FilamentCalls\Tests\TestCase;
+use Packstub\FilamentHoller\Tests\Fixtures\User;
+use Packstub\FilamentHoller\Tests\TestCase;
 
 pest()->extend(TestCase::class)->in('Feature', 'Unit');
 
@@ -12,5 +12,5 @@ function user(string $name): User
 
 function callsRoute(string $name, array $parameters = []): string
 {
-    return route("filament.admin.filament-calls.{$name}", $parameters);
+    return route("filament.admin.filament-holler.{$name}", $parameters);
 }

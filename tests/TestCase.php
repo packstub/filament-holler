@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\FilamentCalls\Tests;
+namespace Packstub\FilamentHoller\Tests;
 
 use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
 use BladeUI\Icons\BladeIconsServiceProvider;
@@ -17,11 +17,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
-use Packstub\Calls\CallsServiceProvider;
-use Packstub\FilamentCalls\FilamentCallsServiceProvider;
-use Packstub\FilamentCalls\Tests\Fixtures\AdminPanelProvider;
-use Packstub\FilamentCalls\Tests\Fixtures\User;
-use Packstub\FilamentCalls\Tests\Fixtures\VerifiedPanelProvider;
+use Packstub\FilamentHoller\FilamentHollerServiceProvider;
+use Packstub\FilamentHoller\Tests\Fixtures\AdminPanelProvider;
+use Packstub\FilamentHoller\Tests\Fixtures\User;
+use Packstub\FilamentHoller\Tests\Fixtures\VerifiedPanelProvider;
+use Packstub\Holler\HollerServiceProvider;
 use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
 
 abstract class TestCase extends Orchestra
@@ -60,8 +60,8 @@ abstract class TestCase extends Orchestra
             WidgetsServiceProvider::class,
             // Real apps discover filament/* before livewire; keep that order.
             LivewireServiceProvider::class,
-            CallsServiceProvider::class,
-            FilamentCallsServiceProvider::class,
+            HollerServiceProvider::class,
+            FilamentHollerServiceProvider::class,
             AdminPanelProvider::class,
             VerifiedPanelProvider::class,
         ];

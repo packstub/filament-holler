@@ -1,13 +1,13 @@
 {
-    "name": "filament-calls",
+    "name": "filament-holler",
     "private": true,
-    "description": "Build and test helpers: copies the @packstub/calls engine into resources/dist/calls-core.js (committed, so Composer users need no npm) and runs the Playwright end-to-end suite against the workbench panel.",
+    "description": "Build and test helpers: copies the @packstub/holler engine into resources/dist/holler-core.js (committed, so Composer users need no npm) and runs the Playwright end-to-end suite against the workbench panel.",
     "scripts": {
-        "build:js": "cp node_modules/@packstub/calls/src/index.js resources/dist/calls-core.js",
+        "build:js": "cp node_modules/@packstub/holler/src/index.js resources/dist/holler-core.js",
         "test:e2e": "playwright test"
     },
     "devDependencies": {
-        "@packstub/calls": "github:packstub/calls-js",
+        "@packstub/holler": "github:packstub/holler-js",
         "@playwright/test": "^1.64.1"
     }
 }

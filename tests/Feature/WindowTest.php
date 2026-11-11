@@ -1,8 +1,8 @@
 <?php
 
 use Filament\Facades\Filament;
-use Packstub\Calls\Models\Call;
-use Packstub\FilamentCalls\FilamentCallsPlugin;
+use Packstub\FilamentHoller\FilamentHollerPlugin;
+use Packstub\Holler\Models\Call;
 
 beforeEach(function (): void {
     $this->ion = user('Ion');
@@ -15,7 +15,7 @@ it('serves the pop-out page for a call of mine, or for someone to ring, and refu
 
     $this->actingAs($this->ana)->get(callsRoute('window', ['call' => $call->id]))
         ->assertOk()
-        ->assertSee('fi-calls-popup', escape: false)
+        ->assertSee('fi-holler-popup', escape: false)
         ->assertSee('\\u0022popup\\u0022:true', escape: false)
         // The page does not tell the widget to answer: it reads ?call= itself and answers only
         // with the one-time token the opening page left in localStorage.
@@ -29,7 +29,7 @@ it('serves the pop-out page for a call of mine, or for someone to ring, and refu
 });
 
 it('pops calls out unless the panel runs in SPA mode, and lets a panel decide otherwise', function (): void {
-    $plugin = FilamentCallsPlugin::get();
+    $plugin = FilamentHollerPlugin::get();
     $panel = Filament::getPanel('admin');
 
     expect($plugin->isPopOut())->toBeTrue();

@@ -2,11 +2,11 @@
 
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
-use Packstub\Calls\AppContext;
-use Packstub\Calls\Contracts\CallContext;
-use Packstub\Calls\Facades\Calls;
-use Packstub\FilamentCalls\FilamentCallsPlugin;
-use Packstub\FilamentCalls\PanelContext;
+use Packstub\FilamentHoller\FilamentHollerPlugin;
+use Packstub\FilamentHoller\PanelContext;
+use Packstub\Holler\AppContext;
+use Packstub\Holler\Contracts\CallContext;
+use Packstub\Holler\Facades\Holler;
 
 beforeEach(function (): void {
     $this->ion = user('Ion');
@@ -16,27 +16,27 @@ beforeEach(function (): void {
 
 it('answers like a plain app outside a panel: the core\'s guard, not the default panel\'s', function (): void {
     Filament::setCurrentPanel(null);
-    config()->set('packstub-calls.guard', 'web');
+    config()->set('holler.guard', 'web');
 
     expect(app(PanelContext::class)->plugin())->toBeNull()
-        ->and(Calls::context()->scope())->toBe('web')
-        ->and(Calls::currentUserId())->toBeNull();
+        ->and(Holler::context()->scope())->toBe('web')
+        ->and(Holler::currentUserId())->toBeNull();
 });
 
 it('binds the panel context over the core\'s app context', function (): void {
     expect(app(CallContext::class))->toBeInstanceOf(PanelContext::class)
-        ->and(Calls::context())->toBe(app(PanelContext::class))
-        ->and(app(PanelContext::class)->plugin())->toBe(FilamentCallsPlugin::get());
+        ->and(Holler::context())->toBe(app(PanelContext::class))
+        ->and(app(PanelContext::class)->plugin())->toBe(FilamentHollerPlugin::get());
 });
 
 it('names people the way the panel does and finds them through the panel guard', function (): void {
     $this->actingAs($this->ion);
     Filament::setCurrentPanel(Filament::getPanel('admin'));
 
-    expect(Calls::currentUserId())->toBe((string) $this->ion->getKey())
-        ->and(Calls::findUser((string) $this->ana->getKey())?->is($this->ana))->toBeTrue()
-        ->and(Calls::findUser('999'))->toBeNull()
-        ->and(Calls::who($this->ana))->toBe([
+    expect(Holler::currentUserId())->toBe((string) $this->ion->getKey())
+        ->and(Holler::findUser((string) $this->ana->getKey())?->is($this->ana))->toBeTrue()
+        ->and(Holler::findUser('999'))->toBeNull()
+        ->and(Holler::who($this->ana))->toBe([
             'id' => (string) $this->ana->getKey(),
             'name' => Filament::getUserName($this->ana),
             'avatar' => Filament::getUserAvatarUrl($this->ana),
@@ -60,12 +60,12 @@ it('never asks the database for an id that cannot be a key of the panel\'s users
 });
 
 it('answers who may call, the ICE servers and video from the plugin, with the config behind it', function (): void {
-    $plugin = FilamentCallsPlugin::get();
-    $context = Calls::context();
+    $plugin = FilamentHollerPlugin::get();
+    $context = Holler::context();
 
     expect($context->canCall($this->ion, $this->ana))->toBeTrue()
         ->and($context->canCall($this->ion, $this->ion))->toBeFalse()
-        ->and($context->iceServers())->toBe(config('packstub-calls.ice_servers'))
+        ->and($context->iceServers())->toBe(config('holler.ice_servers'))
         ->and($context->hasVideo())->toBeTrue();
 
     expect($context->maxParticipants())->toBe(4);
@@ -81,7 +81,7 @@ it('answers who may call, the ICE servers and video from the plugin, with the co
     expect($context->maxParticipants())->toBe(2);
 
     $plugin->canCall(null)->iceServers(null)->video(true)->maxParticipants(null);
-    config()->set('packstub-calls.video', false);
+    config()->set('holler.video', false);
 
     expect($context->hasVideo())->toBeFalse();
 

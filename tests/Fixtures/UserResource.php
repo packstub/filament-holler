@@ -1,11 +1,11 @@
 <?php
 
-namespace Packstub\FilamentCalls\Tests\Fixtures;
+namespace Packstub\FilamentHoller\Tests\Fixtures;
 
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Packstub\FilamentCalls\Actions\CallAction;
+use Packstub\FilamentHoller\Actions\CallAction;
 
 class UserResource extends Resource
 {

@@ -1,6 +1,6 @@
 {
-    "name": "packstub/filament-calls",
-    "description": "Audio, video and screen-share calls inside a Filament panel, 1-on-1 or in groups of up to four, peer to peer over WebRTC: a CallAction for any user record and a call widget on every page. The media goes browser to browser; polling signaling, no websockets. The panel side of packstub/calls.",
+    "name": "packstub/filament-holler",
+    "description": "Audio, video and screen-share calls inside a Filament panel, 1-on-1 or in groups of up to four, peer to peer over WebRTC: a CallAction for any user record and a call widget on every page. The media goes browser to browser; polling signaling, no websockets. The panel side of packstub/holler.",
     "keywords": [
         "packstub",
         "laravel",
@@ -16,11 +16,11 @@
         "peer-to-peer",
         "livewire"
     ],
-    "homepage": "https://github.com/packstub/filament-calls",
+    "homepage": "https://github.com/packstub/filament-holler",
     "support": {
-        "issues": "https://github.com/packstub/filament-calls/issues",
-        "source": "https://github.com/packstub/filament-calls",
-        "docs": "https://packstub.dev/docs/filament-calls"
+        "issues": "https://github.com/packstub/filament-holler/issues",
+        "source": "https://github.com/packstub/filament-holler",
+        "docs": "https://packstub.dev/docs/filament-holler"
     },
     "license": "MIT",
     "funding": [
@@ -44,7 +44,7 @@
     "require": {
         "filament/filament": "^4.13.3 || ^5.8.3",
         "illuminate/contracts": "^12.69 || ^13.30",
-        "packstub/calls": "^1.0",
+        "packstub/holler": "^1.0",
         "php": "^8.3",
         "spatie/laravel-package-tools": "^1.93"
     },
@@ -57,23 +57,23 @@
     "repositories": [
         {
             "type": "path",
-            "url": "../calls",
+            "url": "../holler",
             "options": {
                 "symlink": true,
                 "versions": {
-                    "packstub/calls": "1.0.0"
+                    "packstub/holler": "1.0.0"
                 }
             }
         }
     ],
     "autoload": {
         "psr-4": {
-            "Packstub\\FilamentCalls\\": "src/"
+            "Packstub\\FilamentHoller\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Packstub\\FilamentCalls\\Tests\\": "tests/",
+            "Packstub\\FilamentHoller\\Tests\\": "tests/",
             "Workbench\\App\\": "workbench/app/",
             "Workbench\\Database\\Seeders\\": "workbench/database/seeders/"
         }
@@ -101,7 +101,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Packstub\\FilamentCalls\\FilamentCallsServiceProvider"
+                "Packstub\\FilamentHoller\\FilamentHollerServiceProvider"
             ]
         }
     },
