@@ -22,9 +22,10 @@ async function signIn(context, email) {
         await page.locator('input[type=password]').press('Enter')
         const signedIn = await page.waitForURL('**/admin', { timeout: 10_000 }).then(() => true, () => false)
         if (signedIn) break
-        if (attempt === 4) throw new Error(`Could not sign in as ${email}`)
+        if (attempt === 6) throw new Error(`Could not sign in as ${email}`)
+        // The throttle's notification may not be on the page yet: without its number, wait a while anyway.
         const throttled = (await page.locator('body').innerText()).match(/try again in (\d+) seconds/i)
-        if (throttled) await page.waitForTimeout((Number(throttled[1]) + 1) * 1000)
+        await page.waitForTimeout(throttled ? (Number(throttled[1]) + 1) * 1000 : 15_000)
     }
 
     await page.goto('/admin/users')
@@ -319,4 +320,55 @@ test('a pop-out link alone neither rings anyone nor answers a call', async () =>
     await anaLink.getByRole('alertdialog').getByRole('button', { name: 'Accept', exact: true }).click()
     await expectActive(anaLink)
     await expectActive(ionWindow)
+})
+
+test('a name with markup in a notification stays text', async () => {
+    const text = 'Dana <a href="https://example.com">Popa</a> & <b>Co</b> left the call'
+    await ion.evaluate(([selector, text]) => Alpine.$data(document.querySelector(selector)).show(text, 'info'), [WIDGET, text])
+
+    const notification = ion.locator('.fi-no-notification').filter({ hasText: 'Dana' })
+    await expect(notification).toContainText(text)
+    await expect(notification.locator('a, b')).toHaveCount(0)
+})
+
+test('a call for the keyboard and the screen reader: announced, titled, and the focus stays on a toggle', async () => {
+    const ionWindow = await ring(ion)
+    await expect(ana.locator('[aria-live=assertive]')).toHaveText('Ion Caliman is calling you', { timeout: 30_000 })
+
+    const anaWindow = await answer(ana)
+    await expectActive(ionWindow)
+    await expectActive(anaWindow)
+    await expect(anaWindow).toHaveTitle(/^Ion Caliman · Call/)
+    await expect(ana.getByRole('region', { name: 'Ion Caliman' })).toBeVisible()
+
+    // Mute and unmute from the keyboard: the button that takes the clicked one's place has the focus.
+    await anaWindow.getByRole('button', { name: 'Mute', exact: true }).focus()
+    await anaWindow.keyboard.press('Enter')
+    await expect(anaWindow.getByRole('button', { name: 'Unmute', exact: true })).toBeFocused()
+    await anaWindow.keyboard.press('Enter')
+    await expect(anaWindow.getByRole('button', { name: 'Mute', exact: true })).toBeFocused()
+    await anaWindow.getByRole('button', { name: 'Turn camera off', exact: true }).focus()
+    await anaWindow.keyboard.press('Enter')
+    await expect(anaWindow.getByRole('button', { name: 'Turn camera on', exact: true })).toBeFocused()
+
+    await Promise.all([
+        ionWindow.waitForEvent('close'),
+        anaWindow.locator('.fi-calls-window').getByRole('button', { name: 'Hang up', exact: true }).click(),
+    ])
+})
+
+test('after a reload of the main tab, "Open the call window" brings the pop-out back without reloading it', async () => {
+    const ionWindow = await ring(ion)
+    await answer(ana)
+    await expectActive(ionWindow)
+
+    await ion.reload()
+    await expect.poll(() => state(ion), { timeout: 30_000 }).toBe('elsewhere')
+    await ionWindow.evaluate(() => { window.stillTheSamePage = true })
+
+    await ion.locator('.fi-calls-chip').getByRole('button', { name: 'Open the call window', exact: true }).click()
+    await ion.waitForTimeout(1000)
+    expect(await ionWindow.evaluate(() => window.stillTheSamePage)).toBe(true)
+    expect(await state(ionWindow)).toBe('active')
+    expect(ion.context().pages()).toHaveLength(2)
 })

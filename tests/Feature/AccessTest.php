@@ -74,6 +74,37 @@ it('asks two users of a panel with tenancy to share a tenant', function (): void
     expect(FilamentCallsPlugin::get()->isCallAllowed($this->ion, $this->ana))->toBeTrue();
 });
 
+it('does not take the tenant being viewed as shared when only the callee is in it', function (): void {
+    $tenantOf = fn (int $id) => tap(new class extends Model {}, fn (Model $model) => $model->forceFill(['id' => $id]));
+    $member = fn (array $tenants) => new class($tenants) extends User implements HasTenants
+    {
+        public function __construct(public array $tenantList = [])
+        {
+            parent::__construct();
+        }
+
+        public function getTenants(Panel $panel): Collection
+        {
+            return collect($this->tenantList);
+        }
+
+        public function canAccessTenant(Model $tenant): bool
+        {
+            return collect($this->tenantList)->contains(fn (Model $mine) => $mine->getKey() === $tenant->getKey());
+        }
+    };
+
+    $panel = Filament::getPanel('admin');
+    Filament::setTenant($tenantOf(1), isQuiet: true);
+    FilamentCallsPlugin::flushTenantCache();
+
+    // The core asks between two people on a group call, neither of them necessarily the one signed in.
+    expect(FilamentCallsPlugin::sharesTenant($member([$tenantOf(2)]), $member([$tenantOf(1)]), $panel))->toBeFalse()
+        ->and(FilamentCallsPlugin::sharesTenant($member([$tenantOf(1)]), $member([$tenantOf(1)]), $panel))->toBeTrue();
+
+    Filament::setTenant(null, isQuiet: true);
+});
+
 it('keeps the calls of a panel in its guard', function (): void {
     expect(Calls::context()->scope())->toBe(Filament::getPanel('admin')->getAuthGuard());
 
@@ -89,4 +120,51 @@ it('follows the core\'s pop_out config unless the plugin says otherwise', functi
 
     FilamentCallsPlugin::get()->popOut(true);
     expect(FilamentCallsPlugin::get()->isPopOut())->toBeTrue();
+});
+
+it('keeps the calls of a panel that requires a verified email to people who verified theirs', function (): void {
+    $panel = Filament::getPanel('verified');
+    Filament::setCurrentPanel($panel);
+    $this->ana->markEmailAsVerified();
+
+    // The routes ask what the panel's pages ask: an unverified caller never reaches them.
+    $this->actingAs($this->ion)
+        ->getJson($panel->route('filament-calls.poll'))
+        ->assertForbidden();
+    $this->actingAs($this->ion)
+        ->postJson($panel->route('filament-calls.store'), ['callee' => $this->ana->getKey()])
+        ->assertForbidden();
+    expect(Calls::openCallsOf((string) $this->ana->getKey()))->toBeEmpty();
+
+    // Nor rings someone who has not verified (a sign-up with somebody else's address).
+    Filament::setCurrentPanel($panel);
+    expect(FilamentCallsPlugin::get()->isCallAllowed($this->ana, $this->ion))->toBeFalse();
+    $this->ion->markEmailAsVerified();
+    expect(FilamentCallsPlugin::get()->isCallAllowed($this->ana, $this->ion))->toBeTrue();
+
+    // The widget stays off the verify-your-email page.
+    $this->actingAs(user('Mihai'))
+        ->get($panel->getEmailVerificationPromptUrl())
+        ->assertOk()
+        ->assertDontSee('packstubCalls(', escape: false);
+
+    // On the panel without the requirement nothing changes.
+    expect(FilamentCallsPlugin::routeMiddleware(Filament::getPanel('admin')))->toBe([]);
+});
+
+it('asks for multi-factor authentication on the call routes where the panel requires it', function (): void {
+    $panel = Panel::make()->id('mfa')->multiFactorAuthentication([], isRequired: true);
+
+    expect(FilamentCallsPlugin::routeMiddleware($panel))->toBe([$panel->getMultiFactorAuthenticationRequiredMiddleware()]);
+});
+
+it('keeps the Call button hidden for someone the user may not call, whatever visible() the app adds', function (): void {
+    $this->actingAs($this->ion);
+    FilamentCallsPlugin::get()->canCall(fn (User $callee): bool => $callee->name !== 'Ana');
+
+    expect(CallAction::make()->user($this->ana)->visible(true)->isVisible())->toBeFalse()
+        ->and(CallAction::make()->user($this->ion)->visible(fn (): bool => true)->isVisible())->toBeFalse()
+        ->and(CallAction::make()->user(user('Mihai'))->visible(true)->isVisible())->toBeTrue()
+        ->and(CallAction::make()->user(user('Dana'))->visible(false)->isVisible())->toBeFalse()
+        ->and(CallAction::make()->user(user('Radu'))->hidden()->isVisible())->toBeFalse();
 });

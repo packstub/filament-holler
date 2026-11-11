@@ -12,7 +12,7 @@ private repo, untagged. Until `packstub/calls` is on Packagist, `composer.json` 
 ## Commands
 
 ```bash
-composer test               # Pest suite (feature: the six endpoints as two users, the widget, the action)
+composer test               # Pest suite (feature: the endpoints as two users, access rules, the widget, the action)
 composer lint               # Pint
 composer build:js           # npm run build:js: copies node_modules/@packstub/calls/src/index.js to resources/dist/calls-core.js
                             # (npm install first; the dev dependency points at github:packstub/calls-js; dist is committed)
@@ -48,7 +48,7 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
   on the page with a notice. `watchWindow()`: a main tab in `elsewhere` whose call nobody holds any more takes it
   back (`client.takeOver()`, which looks at the server first) at once when it knows its pop-out closed, else after
   `TAKE_BACK_DELAY` (3 s, so a reloading pop-out keeps its side). `resources/dist/calls.css`: the widget.
-- `resources/views/widget.blade.php`: rendered by the plugin's `BODY_END` render hook inside `@persist`; passes
+- `resources/views/widget.blade.php`: rendered by the plugin's `BODY_END` render hook inside `@persist('filament-calls.<panel id>')` (one per panel); passes
   routes (`__ID__` placeholder for the call id, `ice` included), CSRF token, `kind`, `iceTransportPolicy`, poll intervals and labels
   to Alpine (no ICE servers: they are fetched per call). Drawn with `<x-filament::button>` (round via `fi-calls-round`, toggles as
   two `aria-pressed` buttons switched with `x-show`), `<x-filament::avatar>`, `<x-filament::icon>`, each icon with an alias from
@@ -56,8 +56,10 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
   CSS variables only, no hex; logical properties.
 - `src/FilamentCallsPlugin.php`: `canCall()`, `iceServers()`, `video()`, `maxParticipants()` (never below 2), `popOut()` (null = pop out unless the
   panel has SPA mode); registers `Calls::routes(prefix: 'filament-calls/calls', middleware: [], as: 'filament-calls.')`
-  and the window route inside `$panel->authenticatedRoutes()` (so they sit behind the panel's auth and CSRF),
-  and the render hook (signed-in users only).
+  and the window route inside `$panel->authenticatedRoutes()` (so they sit behind the panel's auth and CSRF), plus
+  `routeMiddleware()`: the panel's verified-email and MFA middleware where it requires them, as its pages get; the
+  render hook (signed-in users, not on the verify-email / MFA set-up pages, not while an email the panel requires is
+  unverified). `isCallAllowed()` also refuses a callee with an unverified email on such a panel.
 - `src/PanelContext.php`: the core's `CallContext` for a panel (bound by `FilamentCallsServiceProvider`, winning
   over the core's `AppContext`): `Filament::auth()`, `getUserName()` / `getUserAvatarUrl()`, and the plugin's
   options (`maxParticipants()` included); falls back to `AppContext` outside a panel.
@@ -68,17 +70,21 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
 - `src/Http/WindowController.php` + `resources/views/window.blade.php`: the pop-out, Filament's base layout
   with an empty body (the widget arrives through the `BODY_END` hook and reads `?call=` / `?callee=` / `?open=` in JS).
 - `src/Actions/CallAction.php`: `alpineClickHandler` dispatching `filament-calls-call {user}` on `window`;
-  visible only for another `Authenticatable`.
+  `resolveIsHiddenInGroup()` adds `canCallUser()` to whatever `visible()`/`hidden()` the app sets, so an app can
+  narrow the button but never show it for someone `isCallAllowed()` refuses.
 - `resources/lang/en/calls.php`: UI labels only (`filament-calls::calls.*`); server messages are the core's
   `calls::messages.*`. `workbench/`, `testbench.yaml` (registers both providers, the core's first).
-- Tests: `WidgetTest`, `WindowTest` (pop-out, `popOut()`), `PanelRoutesTest` (the core routes under the panel,
+- Tests: `WidgetTest`, `WindowTest` (pop-out, `popOut()`), `AccessTest` (canCall, tenancy, guard, verified email on the
+  second fixture panel `verified`, MFA middleware, the action's visibility), `PanelRoutesTest` (the core routes under the panel,
   `canCall()` on the server, auth, CRLF through the panel route), `PanelContextTest`. The signaling logic
   itself is tested in `packstub/calls`; run that suite too after a change there. `tests/e2e/calls.spec.js`
   (Playwright, `composer test:e2e`) is the only test that runs the real thing: two browser contexts, the pop-outs,
   WebRTC over loopback, a reload mid-call, mute and screen share seen by the other side, the main tab taking the
   call back when its pop-out closes, the page itself when `window.open` is blocked, a pop-out link without the token (neither rings nor answers), and a three-person call (Mihai
   added from Ion's Team page while the pop-out runs the call, tiles with live tracks everywhere, a mute seen on
-  the right tile, Ana's reload, Mihai hanging up while the call goes on). Run it after a change in
+  the right tile, Ana's reload, Mihai hanging up while the call goes on), a name with markup in a notification, the
+  keyboard and screen-reader pass (announcement, title, focus on toggles), and the chip's "Open the call window" after
+  a main-tab reload finding the pop-out without reloading it. Run it after a change in
   any of the three repos; the e2e job in `tests.yml` runs it too.
 
 ## Conventions

@@ -21,6 +21,7 @@ use Packstub\Calls\CallsServiceProvider;
 use Packstub\FilamentCalls\FilamentCallsServiceProvider;
 use Packstub\FilamentCalls\Tests\Fixtures\AdminPanelProvider;
 use Packstub\FilamentCalls\Tests\Fixtures\User;
+use Packstub\FilamentCalls\Tests\Fixtures\VerifiedPanelProvider;
 use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
 
 abstract class TestCase extends Orchestra
@@ -34,6 +35,7 @@ abstract class TestCase extends Orchestra
             $table->string('name');
             $table->string('email')->unique();
             $table->string('password');
+            $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
@@ -61,6 +63,7 @@ abstract class TestCase extends Orchestra
             CallsServiceProvider::class,
             FilamentCallsServiceProvider::class,
             AdminPanelProvider::class,
+            VerifiedPanelProvider::class,
         ];
     }
 

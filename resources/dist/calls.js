@@ -30,6 +30,14 @@ function fill(label, values) {
 }
 
 /**
+ * Plain text for a Filament notification, whose title is HTML (sanitized, but a name like
+ * `<a href=…>` would still come out as a link): every message here is text.
+ */
+function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
+}
+
+/**
  * What this pop-out was opened for. `trusted` only when the page that opened it left the
  * matching one-time token in localStorage: a link someone sent cannot ring anybody or
  * answer a call by itself.
@@ -402,8 +410,25 @@ export default function packstubCalls(config) {
 
         /** Bring the pop-out back; open it again if it was closed, or continue the call here when that is blocked. */
         focusWindow() {
-            if (popup && ! popup.closed) popup.focus()
+            popup = popup && ! popup.closed ? popup : this.findWindow()
+            if (popup) popup.focus()
             else if (this.call && ! this.openWindow({ call: this.call.id })) this.takeBack()
+        },
+
+        /**
+         * The pop-out this tab opened before a reload: the reference is gone, the window is not.
+         * Asked for by name with no address, so it is not navigated (that would reload the call);
+         * a blank window means there was none, and openWindow() then uses that one.
+         */
+        findWindow() {
+            try {
+                const found = window.open('', 'filament-calls', 'popup=yes,width=460,height=620')
+                const path = new URL(config.windowUrl, location.href).pathname
+
+                return found && found.location.pathname === path ? found : null
+            } catch {
+                return null
+            }
         },
 
         /**
@@ -444,17 +469,30 @@ export default function packstubCalls(config) {
             }
         },
 
+        /**
+         * Each toggle is two buttons, one per state, and the one clicked hides: the focus moves
+         * to the one that takes its place, so a keyboard user keeps their spot.
+         */
+        keepFocus(name) {
+            if (document.activeElement?.closest?.('[data-calls-toggle]')?.dataset.callsToggle !== name) return
+            this.$nextTick(() => [...this.$root.querySelectorAll(`[data-calls-toggle="${name}"]`)]
+                .find((button) => button.style.display !== 'none')?.focus())
+        },
+
         toggleMute() {
+            this.keepFocus('mute')
             this.muted = ! this.muted
             client.setMuted(this.muted)
         },
 
         toggleCamera() {
+            this.keepFocus('camera')
             this.cameraOff = ! this.cameraOff
             client.setCameraOff(this.cameraOff)
         },
 
         async toggleShare() {
+            const focused = document.activeElement?.closest?.('[data-calls-toggle]')?.dataset.callsToggle === 'share'
             try {
                 if (client.sharing) await client.stopSharing()
                 else await client.shareScreen()
@@ -462,6 +500,7 @@ export default function packstubCalls(config) {
                 // The person cancelled the picker.
             }
             this.sharing = client.sharing
+            if (focused) this.keepFocus('share')
         },
 
         attach(video, stream) {
@@ -493,7 +532,7 @@ export default function packstubCalls(config) {
             if (! text) return
 
             if (window.FilamentNotification && document.querySelector('.fi-no')) {
-                const notification = new window.FilamentNotification().title(text)
+                const notification = new window.FilamentNotification().title(escapeHtml(text))
                 ;(status === 'info' ? notification.info() : notification.warning()).send()
                 return
             }
@@ -516,6 +555,16 @@ export default function packstubCalls(config) {
         /** On an incoming call: how many people are on it besides the one calling me. */
         get others() {
             return Math.max(0, this.peers.length - 1)
+        },
+
+        /** What a screen reader says when a call comes in ("Ion is calling you"). */
+        get announcement() {
+            return this.state === 'ringing' && this.call?.peer?.name ? fill(config.labels.incoming_from, { name: this.call.peer.name }) : ''
+        },
+
+        /** The pop-out's title: who the call is with. */
+        get windowTitle() {
+            return this.names ? `${this.names} · ${config.labels.call}` : config.labels.call
         },
 
         get othersLabel() {

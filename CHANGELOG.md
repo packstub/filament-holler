@@ -8,7 +8,7 @@ First release of Filament Calls: audio, video and screen-share calls between the
 
 - Register `FilamentCallsPlugin` and a call widget appears on every page for signed-in users
 - A `CallAction` button to ring someone, or add them to the call you are on
-- `canCall()` decides who may call whom; with tenancy, by default only people who share a tenant
-- Drawn with Filament's own components, in the panel's theme, light or dark
+- `canCall()` decides who may call whom, on the server; with tenancy, by default only people who share a tenant, and the panel's email verification and two-factor rules apply
+- Drawn with Filament's own components, in the panel's theme, light or dark, and usable with the keyboard and a screen reader
 - Calls open in a pop-out window by default, so you can keep using the panel, and survive a reload
 - STUN and TURN per panel, voice-only panels with `video(false)`

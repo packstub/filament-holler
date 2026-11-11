@@ -4,6 +4,7 @@ return [
     'call' => 'Call',
 
     'incoming' => 'is calling you',
+    'incoming_from' => ':name is calling you',
     'calling' => 'Calling…',
     'connecting' => 'Connecting…',
     'reconnecting' => 'Reconnecting…',
