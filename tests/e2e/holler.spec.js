@@ -35,7 +35,12 @@ async function signIn(context, email) {
 }
 
 /** The Alpine component's state on a page: idle | calling | ringing | connecting | active | reconnecting | elsewhere. */
-const state = (page) => page.evaluate((selector) => Alpine.$data(document.querySelector(selector)).state, WIDGET)
+// Null until the page has loaded Alpine and the component (it is loaded on demand), so a poll waits for it.
+const state = (page) => page.evaluate((selector) => {
+    const widget = document.querySelector(selector)
+
+    return (widget && window.Alpine?.$data(widget)?.state) ?? null
+}, WIDGET)
 
 /** Kinds and states of the tracks on the remote <video>, e.g. ['audio:live', 'video:live']. */
 const remoteTracks = (page) => page.evaluate((selector) => {
@@ -298,6 +303,8 @@ test('a pop-out link alone neither rings anyone nor answers a call', async () =>
     const link = await ion.context().newPage()
     await link.goto(`/admin/filament-holler/window?callee=${anaId}`)
     await expect(link.locator(WIDGET)).toBeAttached()
+    // Loaded and polling first, then still idle a few polls later.
+    await expect.poll(() => state(link)).toBe('idle')
     await link.waitForTimeout(3000)
     expect(await state(link)).toBe('idle')
     await expect(ana.getByRole('alertdialog')).toBeHidden()
@@ -322,6 +329,69 @@ test('a pop-out link alone neither rings anyone nor answers a call', async () =>
     await expectActive(ionWindow)
 })
 
+test('the settings switch the microphone mid-call for the other side too, and remember the choice', async () => {
+    const ionWindow = await ring(ion)
+    const anaWindow = await answer(ana)
+    await expectActive(ionWindow)
+    await expectActive(anaWindow)
+
+    const settings = ionWindow.getByRole('button', { name: 'Settings', exact: true })
+    await expect(settings).toHaveAttribute('aria-expanded', 'false')
+    await settings.click()
+    await expect(settings).toHaveAttribute('aria-expanded', 'true')
+
+    // The fake devices of the test browser: the default microphone and at least one more.
+    const microphone = ionWindow.locator('[data-holler-device=microphone]')
+    await expect.poll(() => microphone.locator('option').count()).toBeGreaterThan(1)
+    await expect(microphone).toHaveValue('')
+    const ids = (await microphone.locator('option').evaluateAll((options) => options.map((option) => option.value))).filter(Boolean)
+    const sent = () => ionWindow.evaluate((selector) => document.querySelector(`${selector} video.fi-holler-local`).srcObject.getAudioTracks().map((track) => `${track.id}:${track.readyState}`), WIDGET)
+    const before = await sent()
+
+    await microphone.selectOption(ids.at(-1))
+    await expect.poll(() => ionWindow.evaluate(() => JSON.parse(localStorage.getItem('holler:devices') ?? '{}').microphone ?? null)).toBe(ids.at(-1))
+    // A new live track on Ion's side, the same connection on Ana's: nothing rang, nothing reconnected.
+    await expect.poll(sent).not.toEqual(before)
+    expect((await sent())[0]).toMatch(/:live$/)
+    await expectActive(anaWindow)
+    await expectActive(ionWindow)
+    await expect(microphone).toHaveValue(ids.at(-1))
+
+    // After a reload the call comes back with the remembered microphone, shown as chosen. Chromium's
+    // private test context hands out new device ids on every load: there the remembered one is gone,
+    // the system microphone takes over and the menu says so.
+    await ionWindow.reload()
+    await expectActive(ionWindow)
+    await expectActive(anaWindow)
+    await ionWindow.getByRole('button', { name: 'Settings', exact: true }).click()
+    const again = ionWindow.locator('[data-holler-device=microphone]')
+    await expect.poll(() => again.locator('option').count()).toBeGreaterThan(1)
+    const listed = await again.locator('option').evaluateAll((options) => options.map((option) => option.value))
+    await expect(again).toHaveValue(listed.includes(ids.at(-1)) ? ids.at(-1) : '')
+})
+
+test('a call that rings in a background tab shows in the tab title until it is answered or the person is back', async () => {
+    await ana.evaluate(() => {
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+        document.hasFocus = () => false
+    })
+    const title = await ana.title()
+
+    const ionWindow = await ring(ion)
+    await expect(ana.getByRole('alertdialog')).toContainText('Ion Caliman', { timeout: 30_000 })
+    await expect.poll(() => ana.title()).toBe('Ion Caliman is calling you')
+    await expect.poll(() => ana.title()).toBe(title)
+    await expect.poll(() => ana.title()).toBe('Ion Caliman is calling you')
+
+    // Ion gives up: the title is the page's own again.
+    await Promise.all([
+        ionWindow.waitForEvent('close'),
+        ionWindow.locator('.fi-holler-window').getByRole('button', { name: 'Hang up', exact: true }).click(),
+    ])
+    await expect.poll(() => state(ana)).toBe('idle')
+    expect(await ana.title()).toBe(title)
+})
+
 test('a name with markup in a notification stays text', async () => {
     const text = 'Dana <a href="https://example.com">Popa</a> & <b>Co</b> left the call'
     await ion.evaluate(([selector, text]) => Alpine.$data(document.querySelector(selector)).show(text, 'info'), [WIDGET, text])
@@ -342,14 +412,18 @@ test('a call for the keyboard and the screen reader: announced, titled, and the 
     await expect(ana.getByRole('region', { name: 'Ion Caliman' })).toBeVisible()
 
     // Mute and unmute from the keyboard: the button that takes the clicked one's place has the focus.
+    // The button that has the focus in the window, by its label: asked of the document, since a
+    // headless pop-out is not always the system's focused window.
+    const focused = () => anaWindow.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName ?? null)
+    await anaWindow.bringToFront()
     await anaWindow.getByRole('button', { name: 'Mute', exact: true }).focus()
     await anaWindow.keyboard.press('Enter')
-    await expect(anaWindow.getByRole('button', { name: 'Unmute', exact: true })).toBeFocused()
+    await expect.poll(focused).toBe('Unmute')
     await anaWindow.keyboard.press('Enter')
-    await expect(anaWindow.getByRole('button', { name: 'Mute', exact: true })).toBeFocused()
+    await expect.poll(focused).toBe('Mute')
     await anaWindow.getByRole('button', { name: 'Turn camera off', exact: true }).focus()
     await anaWindow.keyboard.press('Enter')
-    await expect(anaWindow.getByRole('button', { name: 'Turn camera on', exact: true })).toBeFocused()
+    await expect.poll(focused).toBe('Turn camera on')
 
     await Promise.all([
         ionWindow.waitForEvent('close'),

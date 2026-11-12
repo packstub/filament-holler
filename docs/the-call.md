@@ -5,10 +5,32 @@
 The plugin draws one widget on every page of the panel for signed-in users:
 
 - **Incoming call**: a toast with the caller's name and avatar, Accept and Decline, and a ring.
-- **The call window**: a tile per other person (their video, or their avatar while the camera is off), your own picture in a corner, and the buttons to mute, turn the camera off, share your screen and hang up. Everyone sees who muted, turned the camera off or shares a screen; a shared screen takes the stage, shown whole, with the cameras in a strip on top or on the side, wherever the screen gets more room.
+- **The call window**: a tile per other person (their video, or their avatar while the camera is off), your own picture in a corner, and the buttons to mute, turn the camera off, share your screen, open the settings and hang up. Everyone sees who muted, turned the camera off or shares a screen; a shared screen takes the stage, shown whole, with the cameras in a strip on top or on the side, wherever the screen gets more room.
 - **Notices** ("Call declined", "Ringing Ana…") as Filament notifications.
 
 It is drawn with Filament's own buttons, avatars and icons and follows the panel's theme, light or dark, its colours and the reading direction; only the video stays dark.
+
+## Microphone, camera and speaker
+
+The settings button in the call window opens three menus: the microphone, the camera and, where the browser can choose one (Chrome, Edge and recent Firefox), the speaker. A choice applies at once, for everyone on the call and without the call reconnecting, and is remembered in that browser for the next call; nothing about it is sent to the server. A remembered device that is unplugged later falls back to the system's own.
+
+```php
+FilamentHollerPlugin::make()->deviceSettings(false)   // no settings button
+```
+
+## A call in the background
+
+The ring is easy to miss in a tab the person is not looking at, so while a call rings there the tab's title alternates with "Ana is calling you", until the call is answered, declined or given up, or the person is back on the tab.
+
+A system notification needs the person's permission, and browsers only show that question after a click, so the plugin never asks by itself: the call's settings carry a link, "Notify me about calls when this tab is in the background". Once allowed, a ringing call shows one notification, however many tabs are open, and a click on it brings the tab back. A notification needs a tab of the panel to be open somewhere: the plugin runs no push service.
+
+```php
+FilamentHollerPlugin::make()->notifications(false)   // neither the title nor a notification
+```
+
+## Connection quality
+
+While the connection to someone loses many packets or answers slowly, their picture carries a "Weak connection" badge, so people know why the video stutters. A call that never finds a path between the two browsers ends with "Could not connect", which usually means it needs a TURN server: see [ICE servers](configuration.md#ice-servers-stun--turn).
 
 ## Where the call lives
 

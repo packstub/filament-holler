@@ -156,3 +156,67 @@ it('keeps one widget per panel across SPA page loads, with that panel\'s routes'
         ->assertSee('x-persist="filament-holler.verified"', escape: false)
         ->assertSee(str_replace('/', '\\\\\\/', url('/verified/filament-holler/calls/poll')), escape: false);
 });
+
+it('draws the device settings, the notifications link and the weak-connection badge, and lets a panel turn them off', function (): void {
+    $this->actingAs(user('Ion'))->get('/admin')
+        ->assertOk()
+        ->assertSee('\\u0022devices\\u0022:true', escape: false)
+        ->assertSee('\\u0022notifications\\u0022:true', escape: false)
+        ->assertSee('data-holler-settings', escape: false)
+        ->assertSee('aria-controls="fi-holler-settings"', escape: false)
+        ->assertSee('data-holler-device="microphone"', escape: false)
+        ->assertSee('data-holler-device="camera"', escape: false)
+        ->assertSee('data-holler-device="speaker"', escape: false)
+        ->assertSee('System default')
+        ->assertSee('data-holler-notify', escape: false)
+        ->assertSee('Notify me about calls when this tab is in the background')
+        ->assertSee('data-peer="quality"', escape: false)
+        ->assertSee('Weak connection');
+
+    FilamentHollerPlugin::get()->deviceSettings(false)->notifications(fn (): bool => false);
+
+    expect(FilamentHollerPlugin::get()->hasDeviceSettings())->toBeFalse()
+        ->and(FilamentHollerPlugin::get()->hasNotifications())->toBeFalse();
+
+    $this->get('/admin')
+        ->assertSee('\\u0022devices\\u0022:false', escape: false)
+        ->assertSee('\\u0022notifications\\u0022:false', escape: false);
+
+    FilamentHollerPlugin::get()->deviceSettings()->notifications();
+});
+
+it('ships the same labels in every language', function (): void {
+    $english = require __DIR__.'/../../resources/lang/en/calls.php';
+
+    foreach (glob(__DIR__.'/../../resources/lang/*/calls.php') as $file) {
+        $labels = require $file;
+
+        expect(array_keys($labels))->toBe(array_keys($english), $file);
+
+        foreach ($english as $key => $text) {
+            preg_match_all('/:[a-z]+/', $text, $placeholders);
+            expect($labels[$key])->toContain(...$placeholders[0]);
+        }
+    }
+});
+
+it('signs TURN credentials that expire for a server with a secret, per panel', function (): void {
+    $this->freezeSecond();
+    FilamentHollerPlugin::get()->iceServers(fn (): array => [['urls' => 'turn:turn.example.com:3478, turns:turn.example.com:443?transport=tcp', 'secret' => 'shared', 'ttl' => 600]]);
+
+    $ion = user('Ion');
+    $username = (now()->getTimestamp() + 600).':'.$ion->getKey();
+
+    $this->actingAs($ion)->getJson('/admin/filament-holler/calls/ice-servers')
+        ->assertOk()
+        ->assertExactJson([
+            'iceServers' => [[
+                'urls' => ['turn:turn.example.com:3478', 'turns:turn.example.com:443?transport=tcp'],
+                'username' => $username,
+                'credential' => base64_encode(hash_hmac('sha1', $username, 'shared', true)),
+            ]],
+            'iceTransportPolicy' => 'all',
+        ]);
+
+    FilamentHollerPlugin::get()->iceServers(null);
+});

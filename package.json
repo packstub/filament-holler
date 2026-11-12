@@ -4,7 +4,8 @@
     "description": "Build and test helpers: copies the @packstub/holler engine into resources/dist/holler-core.js (committed, so Composer users need no npm) and runs the Playwright end-to-end suite against the workbench panel.",
     "scripts": {
         "build:js": "cp node_modules/@packstub/holler/src/index.js resources/dist/holler-core.js",
-        "test:e2e": "playwright test"
+        "test:e2e": "playwright test --project=chromium",
+        "test:e2e:firefox": "playwright test --project=firefox"
     },
     "devDependencies": {
         "@packstub/holler": "github:packstub/holler-js",

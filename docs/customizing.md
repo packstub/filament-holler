@@ -22,11 +22,13 @@ FilamentIcon::register([
 | `filament-holler::mute`, `::unmute` | the button that mutes (shown while live), the one that unmutes (shown while muted) | microphone, a microphone with a slash |
 | `filament-holler::camera-off`, `::camera-on` | the button that turns the camera off (shown while on), the one that turns it on | video-camera, video-camera-slash |
 | `filament-holler::share-screen` | share and stop sharing | computer-desktop |
+| `filament-holler::settings` | the button that opens the microphone, camera and speaker menus | cog-6-tooth |
 | `filament-holler::muted`, `::sharing`, `::camera-off-badge` | badges over someone's video, and "Your mic is off" on your own | the microphone with a slash, computer-desktop, video-camera-slash |
+| `filament-holler::weak-connection` | the badge over the video of someone whose connection is weak | signal |
 
 ## Texts and translations
 
-The widget's labels ship in English. Publish them to change a text or add a language:
+The widget's labels ship in English, German, Romanian and Russian, and follow the panel's locale. Publish them to change a text or add a language:
 
 ```bash
 php artisan vendor:publish --tag=filament-holler-translations

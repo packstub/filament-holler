@@ -23,7 +23,8 @@ Audio, video and screen-share calls between the users of a Filament panel, one o
 - **[Group calls](#group-calls)**: on a call, the same button adds someone to it, up to four people.
 - **[Calls that survive a page load](#where-the-call-lives)**: in a pop-out window, or in the page itself in SPA mode; a reload reconnects within seconds.
 - **[Who may call whom](#who-may-call-whom)**: `canCall()`, tenant-aware by default, checked on the server.
-- **[STUN and TURN](#stun-and-turn)**: STUN out of the box, your own TURN relay through env variables or per panel.
+- **[STUN and TURN](#stun-and-turn)**: a free public STUN server out of the box, your own TURN relay through env variables or per panel, with credentials that expire per call.
+- **[Devices and notifications](#the-call-widget)**: people choose their microphone, camera and speaker mid-call, and a call in a background tab still gets noticed.
 - **[Your icons and texts](#customizing)**: every icon has an alias, every label a translation, and the engine takes options.
 - **[A call log](#events-and-the-call-log)**: events and tables with durations, ready for a resource of your own.
 
@@ -88,7 +89,7 @@ Read more: [Calling](https://packstub.dev/docs/filament-holler/calling).
 
 ## The call widget
 
-The plugin draws one widget on every page for signed-in users: the incoming-call toast with Accept and Decline, then a floating window with a tile per other person, your own picture in a corner, and buttons to mute, turn the camera off, share your screen and hang up. A shared screen takes the stage in the other windows. The widget is drawn with Filament's own buttons and avatars and follows the panel's theme, light or dark; its messages are Filament notifications.
+The plugin draws one widget on every page for signed-in users: the incoming-call toast with Accept and Decline, then a floating window with a tile per other person, your own picture in a corner, and buttons to mute, turn the camera off, share your screen and hang up. A shared screen takes the stage in the other windows. The settings button lets each person choose their microphone, camera and speaker, also mid-call, and a call that rings while the tab is in the background shows in the tab's title and, once allowed, as a system notification. The widget is drawn with Filament's own buttons and avatars and follows the panel's theme, light or dark; its messages are Filament notifications.
 
 Read more: [The call](https://packstub.dev/docs/filament-holler/the-call).
 
@@ -130,15 +131,14 @@ Read more: [Where the call lives](https://packstub.dev/docs/filament-holler/the-
 
 ## STUN and TURN
 
-Most calls connect directly with the default STUN server. Calls behind strict NATs or corporate firewalls need a TURN relay; point the plugin at yours:
+Calls work right after the install: the default is Google's public STUN server, free and without an account (`HOLLER_STUN_URL` takes another one), and most calls then go straight from browser to browser. People behind a strict NAT, a VPN or a corporate firewall need a TURN relay; point the plugin at yours:
 
 ```dotenv
-HOLLER_TURN_URL=turn:turn.example.com:3478
-HOLLER_TURN_USERNAME=...
-HOLLER_TURN_CREDENTIAL=...
+HOLLER_TURN_URL=turn:turn.example.com:3478,turns:turn.example.com:443?transport=tcp
+HOLLER_TURN_SECRET=the-secret-coturn-shares-with-the-app
 ```
 
-Or per panel with `->iceServers(fn () => [...])`, for short-lived credentials: the browsers ask for them each time a call starts. `HOLLER_ICE_TRANSPORT_POLICY=relay` sends every call through the relay, so nobody sees anybody else's network address.
+With the secret (coturn's `use-auth-secret`) every call gets credentials that expire, so no long-lived TURN password reaches a browser; a fixed `HOLLER_TURN_USERNAME` and `HOLLER_TURN_CREDENTIAL` work too. For a hosted TURN service, return its credentials from `->iceServers(fn () => [...])` per panel: the browsers ask for the servers each time a call starts. `HOLLER_ICE_TRANSPORT_POLICY=relay` sends everything through the relay, so nobody sees anybody else's network address. A call that cannot find a path ends with "Could not connect" and a hint in the browser console.
 
 Read more: [ICE servers](https://packstub.dev/docs/filament-holler/configuration#ice-servers-stun--turn).
 
@@ -164,6 +164,8 @@ FilamentHollerPlugin::make()
     ->maxParticipants(4)
     ->video(true)
     ->popOut(null)               // null: a pop-out unless the panel runs in SPA mode
+    ->deviceSettings(true)       // the microphone, camera and speaker menus
+    ->notifications(true)        // a call in a background tab: the tab title, a system notification
     ->iceServers(fn () => [...]);
 ```
 

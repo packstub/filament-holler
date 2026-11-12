@@ -36,6 +36,8 @@
         'poll' => config('holler.poll'),
         'reconnectTimeout' => (int) config('holler.reconnect_timeout', 15) * 1000,
         'maxParticipants' => $plugin->getMaxParticipants(),
+        'devices' => $plugin->hasDeviceSettings(),
+        'notifications' => $plugin->hasNotifications(),
         'labels' => __('filament-holler::calls'),
     ];
 
@@ -133,7 +135,7 @@
         <div class="fi-holler-stage" x-ref="stage" :data-spotlight="spotlight ?? null" :data-strip="spotlight ? (peers.length > 1 ? strip : 'none') : null">
             <div class="fi-holler-grid" :data-count="peers.length">
                 <template x-for="peer in peers" :key="peer.id">
-                    <div class="fi-holler-tile" :data-peer-id="peer.id" :data-peer-status="peer.status" :data-role="spotlight ? (peer.id === spotlight ? 'spotlight' : 'strip') : null">
+                    <div class="fi-holler-tile" :data-peer-id="peer.id" :data-peer-status="peer.status" :data-quality="peer.quality" :data-role="spotlight ? (peer.id === spotlight ? 'spotlight' : 'strip') : null">
                         <video autoplay playsinline class="fi-holler-remote" x-effect="attach($el, peer.stream)" :class="{ 'fi-holler-hidden': ! showRemote(peer) }"></video>
                         <div class="fi-holler-placeholder" x-show="! showRemote(peer)">
                             <template x-if="peer.avatar">
@@ -164,6 +166,10 @@
                                 <x-filament::icon :icon="Heroicon::VideoCameraSlash" :size="IconSize::Small" :alias="Icon::CAMERA_OFF_BADGE" class="fi-holler-badge-icon" />
                                 {{ __('filament-holler::calls.peer_camera_off') }}
                             </span>
+                            <span class="fi-holler-badge fi-holler-badge-warning" x-show="peer.connected && peer.quality === 'poor'" x-cloak data-peer="quality">
+                                <x-filament::icon :icon="Heroicon::Signal" :size="IconSize::Small" :alias="Icon::WEAK_CONNECTION" class="fi-holler-badge-icon" />
+                                {{ __('filament-holler::calls.quality_poor') }}
+                            </span>
                         </div>
                     </div>
                 </template>
@@ -183,6 +189,27 @@
                     <span class="fi-holler-self-badge-text">{{ __('filament-holler::calls.you_muted') }}</span>
                 </span>
             </div>
+        </div>
+
+        {{-- The microphone, the camera and the speaker; a choice applies at once and is remembered in this browser. --}}
+        <div class="fi-holler-settings" id="fi-holler-settings" x-show="settingsOpen" x-cloak>
+            @foreach (['microphone' => 'microphones', 'camera' => 'cameras', 'speaker' => 'speakers'] as $kind => $list)
+                <label class="fi-holler-field" x-show="config.devices && devices.{{ $list }}.length > 0{{ $kind === 'speaker' ? ' && canPickSpeaker' : '' }}" x-cloak>
+                    <span class="fi-holler-field-label">{{ __('filament-holler::calls.'.$kind) }}</span>
+                    <x-filament::input.wrapper>
+                        {{-- The value is set once the options are drawn: an option added later does not select itself. --}}
+                        <x-filament::input.select data-holler-device="{{ $kind }}" x-on:change="setDevice('{{ $kind }}', $event.target.value)" x-effect="const value = chosen('{{ $kind }}'); $nextTick(() => { $el.value = value })">
+                            <option value="">{{ __('filament-holler::calls.default_device') }}</option>
+                            <template x-for="(device, index) in devices.{{ $list }}" :key="device.id">
+                                <option :value="device.id" x-text="device.label || (@js(__('filament-holler::calls.'.$kind)) + ' ' + (index + 1))"></option>
+                            </template>
+                        </x-filament::input.select>
+                    </x-filament::input.wrapper>
+                </label>
+            @endforeach
+            <x-filament::link tag="button" size="sm" x-show="canNotify" x-cloak x-on:click="enableNotifications" data-holler-notify class="fi-holler-notify">
+                {{ __('filament-holler::calls.notify') }}
+            </x-filament::link>
         </div>
 
         {{-- Toggles are Filament's own pressed buttons (aria-pressed), two per toggle, one per
@@ -208,6 +235,10 @@
             </x-filament::button>
             <x-filament::button color="primary" :icon="Heroicon::OutlinedComputerDesktop" :icon-alias="Icon::SHARE_SCREEN" label-sr-only :tooltip="__('filament-holler::calls.stop_sharing')" data-holler-toggle="share" aria-pressed="true" x-show="state === 'active' && sharing" x-cloak x-on:click="toggleShare" class="fi-holler-round">
                 {{ __('filament-holler::calls.stop_sharing') }}
+            </x-filament::button>
+
+            <x-filament::button color="gray" :icon="Heroicon::OutlinedCog6Tooth" :icon-alias="Icon::SETTINGS" label-sr-only :tooltip="__('filament-holler::calls.settings')" data-holler-settings aria-controls="fi-holler-settings" x-bind:aria-expanded="settingsOpen.toString()" x-show="config.devices || canNotify" x-on:click="toggleSettings" class="fi-holler-round">
+                {{ __('filament-holler::calls.settings') }}
             </x-filament::button>
 
             <x-filament::button color="danger" :icon="Heroicon::OutlinedPhoneXMark" :icon-alias="Icon::HANG_UP" label-sr-only :tooltip="__('filament-holler::calls.hang_up')" x-on:click="hangUp" class="fi-holler-round">
