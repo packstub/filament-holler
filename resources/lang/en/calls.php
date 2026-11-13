@@ -40,6 +40,7 @@ return [
     'ended_failed' => 'Could not connect',
     'ended_dropped' => 'Connection lost',
     'ended_busy' => 'Busy',
+    'ended_signed_out' => 'You were signed out. Sign in again to call.',
     'no_media' => 'Could not access your camera or microphone.',
 
     'settings' => 'Settings',
@@ -65,4 +66,10 @@ return [
     'resume' => 'Resume',
     'peer_on_hold' => ':name put the call on hold',
     'held_ended' => 'The call on hold ended',
+
+    'people' => 'People',
+    'in_call' => 'In this call',
+    'you' => 'You',
+    'close' => 'Close',
+    'resize_self' => 'Drag to resize your picture',
 ];

@@ -46,4 +46,10 @@ class FilamentHollerIconAlias
     const ON_HOLD = 'filament-holler::on-hold';
 
     const SEARCH = 'filament-holler::search';
+
+    const PEOPLE = 'filament-holler::people';
+
+    const CLOSE_PANEL = 'filament-holler::close-panel';
+
+    const RESIZE_SELF = 'filament-holler::resize-self';
 }

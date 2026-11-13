@@ -40,6 +40,7 @@ return [
     'ended_failed' => 'Conectarea nu a reușit',
     'ended_dropped' => 'Conexiune pierdută',
     'ended_busy' => 'Ocupat',
+    'ended_signed_out' => 'Ai fost deconectat. Autentifică-te din nou pentru a apela.',
     'no_media' => 'Nu s-a putut accesa camera sau microfonul.',
 
     'settings' => 'Setări',
@@ -65,4 +66,10 @@ return [
     'resume' => 'Reia',
     'peer_on_hold' => ':name a pus apelul în așteptare',
     'held_ended' => 'Apelul în așteptare s-a încheiat',
+
+    'people' => 'Persoane',
+    'in_call' => 'În acest apel',
+    'you' => 'Tu',
+    'close' => 'Închide',
+    'resize_self' => 'Trage pentru a redimensiona imaginea ta',
 ];

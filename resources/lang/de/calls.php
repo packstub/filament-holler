@@ -40,6 +40,7 @@ return [
     'ended_failed' => 'Verbindung fehlgeschlagen',
     'ended_dropped' => 'Verbindung verloren',
     'ended_busy' => 'Besetzt',
+    'ended_signed_out' => 'Du wurdest abgemeldet. Melde dich erneut an, um anzurufen.',
     'no_media' => 'Kein Zugriff auf deine Kamera oder dein Mikrofon.',
 
     'settings' => 'Einstellungen',
@@ -65,4 +66,10 @@ return [
     'resume' => 'Fortsetzen',
     'peer_on_hold' => ':name hält den Anruf',
     'held_ended' => 'Der gehaltene Anruf wurde beendet',
+
+    'people' => 'Personen',
+    'in_call' => 'In diesem Anruf',
+    'you' => 'Du',
+    'close' => 'Schließen',
+    'resize_self' => 'Ziehen, um dein Bild zu vergrößern oder zu verkleinern',
 ];

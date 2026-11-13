@@ -37,6 +37,8 @@ pop-out default (`HOLLER_POP_OUT=true|false` forces it). To call from other devi
 without the wav, macOS asks Chrome for the microphone and `getUserMedia` hangs. Chrome also blocks `.click()`
 pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devtools-axi does).
 
+The e2e suite (`chromium` for the pop-out panel, `chromium-spa` for an SPA panel without it, on a second server) is slow: run it before a release or after a change to the widget's behaviour, not after every edit.
+
 ## Layout
 
 - `resources/dist/holler-core.js`: the minified build of `@packstub/holler` (`plugins/holler-js`, where the engine's own tests live). Never edit it here.
@@ -115,7 +117,7 @@ The three repos go out together as 1.0.0, in this order; the human does these st
 1. **`packstub/holler-js`**: make the repo public; set `"version": "1.0.0"` in `package.json`; `npm pack --dry-run` (expect `src/` and `dist/` with `index.js`, `widget.js`, `widget.css` each, the two `.d.ts`, README, LICENSE, CHANGELOG); `npm publish` (`publishConfig.access` is public); tag `v1.0.0`.
 2. **`packstub/holler`**: make the repo public; in `package.json` change the dev dependency `github:packstub/holler-js` to `^1.0`, `npm install`, `npm run build:js` and commit `resources/dist` (the engine's banner carries its version, so the three files change with 1.0.0 and nothing else should); tag `v1.0.0`; submit the repo to Packagist and check that the GitHub hook updates it.
 3. **`packstub/filament-holler`** (this repo): remove the `repositories` path entry to `../holler` from `composer.json`; keep `"packstub/holler": "^1.0"` and run `composer update packstub/holler` so the lock takes it from Packagist (`vendor/packstub/holler` stops being a symlink); in `package.json` change `github:packstub/holler-js` to `^1.0`, `npm install`, `npm run build:js`, commit `resources/dist/holler-core.js` (its banner carries the new version) and check with `npm run build:js:check`; in `tests.yml` drop the checkout of `packstub/holler` and the two deploy keys, so CI tests against the released packages; `composer test` and `composer test:e2e`; make the repo public; tag `v1.0.0`; submit to Packagist.
-4. Until steps 2 and 3 are done, this repo's CI checks out `packstub/holler@main` beside it and clones holler-js with deploy keys (`HOLLER_DEPLOY_KEY`, `HOLLER_JS_DEPLOY_KEY`), so it tests against the two `main` branches: merge holler-js and holler first, then `npm update @packstub/holler && npm run build:js` here. Run the e2e suite in Firefox too, and once with `HOLLER_SPA=1 HOLLER_POP_OUT=false` (SPA mode has no browser test in CI), before tagging.
+4. Until steps 2 and 3 are done, this repo's CI checks out `packstub/holler@main` beside it and clones holler-js with deploy keys (`HOLLER_DEPLOY_KEY`, `HOLLER_JS_DEPLOY_KEY`), so it tests against the two `main` branches: merge holler-js and holler first, then `npm update @packstub/holler && npm run build:js` here. Run the e2e suite in Firefox too before tagging (CI runs Chromium only: the pop-out panel and, as `chromium-spa`, the SPA panel without it).
 5. Afterwards: update the three rows in the workspace `CLAUDE.md` (private, untagged, path repo), set `"stats": true` in `workspace/projects.json` and run `workspace/register-stats.sh`, the store listing and docs (skill `filament-plugin-listing`), and the filamentphp.com listing for this plugin (named **Holler** there).
 
 ## Not in the MVP (ideas)

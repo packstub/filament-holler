@@ -36,6 +36,21 @@ function loadDevices() {
     }
 }
 
+// My own picture's width as a share of the stage, as the person last resized it.
+const SELF_SIZE_KEY = 'holler:self-size'
+const SELF_MIN = 0.12
+const SELF_MAX = 0.6
+
+function readSelfSize() {
+    try {
+        const size = Number(localStorage.getItem(SELF_SIZE_KEY))
+
+        return size >= SELF_MIN && size <= SELF_MAX ? size : null
+    } catch {
+        return null
+    }
+}
+
 // What the opening page leaves in localStorage for the pop-out: { call, callee, at }, read once.
 const OPEN_TOKEN_KEY = 'holler:open:'
 const OPEN_TOKEN_TTL = 60000
@@ -156,6 +171,7 @@ export default function packstubHoller(config) {
     let quietHeld = false
     // The search whose answer counts: an older one, or one after the box closed, is dropped.
     let peopleSearch = 0
+    let peopleRoster = ''
 
     const windowUrl = (params) => config.windowUrl.replace('__ID__', encodeURIComponent(params.call ?? '')).replace('__USER__', encodeURIComponent(params.callee ?? ''))
 
@@ -191,6 +207,8 @@ export default function packstubHoller(config) {
         prompt: null,
         // Adding someone from the call window: the search box and what it found, each { id, name, avatar }.
         peopleOpen: false,
+        // My own picture's width as a share of the stage, once resized (null: the stylesheet's).
+        selfSize: readSelfSize(),
         people: [],
         peopleLoaded: false,
         // What the engine allows right now: one more person, the "Add someone" button, a hold.
@@ -312,7 +330,10 @@ export default function packstubHoller(config) {
                 this.$dispatch('filament-holler-sharing', { peer, sharing, spotlight: this.spotlight })
             })
             // The roster, who is connected, muted or sharing, and whose media arrived: one event, the tiles follow.
-            client.addEventListener('peers', () => this.syncPeers())
+            client.addEventListener('peers', () => {
+                this.syncPeers()
+                this.refreshPeople()
+            })
             client.addEventListener('remotestream', () => this.syncPeers())
             client.addEventListener('peerleft', ({ detail: { peer, reason } }) => {
                 sharingPeers.delete(peer.id)
@@ -327,7 +348,8 @@ export default function packstubHoller(config) {
                 takeBackTimer = null
                 sharingPeers.clear()
                 // A call someone hung up is news, not a problem; declined, missed, busy or failed is worth a warning.
-                this.show(config.labels[`ended_${reason}`] || config.labels.ended_hung_up, ['hung_up', 'cancelled'].includes(reason) || ! config.labels[`ended_${reason}`] ? 'info' : 'warning')
+                // Signed out: a Filament notification goes through Livewire, which the ended session refuses, so the widget's own card says it.
+                this.show(config.labels[`ended_${reason}`] || config.labels.ended_hung_up, ['hung_up', 'cancelled'].includes(reason) || ! config.labels[`ended_${reason}`] ? 'info' : 'warning', reason === 'signed_out')
 
                 if (this.popup) closeTimer = setTimeout(() => window.close(), 1500)
             })
@@ -549,10 +571,10 @@ export default function packstubHoller(config) {
             this.canInvite = client.canInvite()
             this.canAdd = this.canInvite && this.inCall && Boolean(config.routes.people)
             this.canHold = client.canHold()
-            if (! this.canAdd) this.peopleOpen = false
+            if (! this.inCall) this.peopleOpen = false
         },
 
-        /** Open or close the search box of the call window. */
+        /** Open or close the People panel: who is on the call, and the search to add someone. */
         togglePeople() {
             if (this.peopleOpen) return this.closePeople()
 
@@ -561,11 +583,55 @@ export default function packstubHoller(config) {
             this.people = []
             this.peopleLoaded = false
             this.$nextTick(() => {
-                if (! this.$refs.peopleSearch) return
+                if (! this.$refs.peopleSearch || ! this.canAdd) return
                 this.$refs.peopleSearch.value = ''
                 this.$refs.peopleSearch.focus()
             })
-            this.loadPeople('')
+            if (this.canAdd) this.loadPeople('')
+        },
+
+        /** Close whichever side panel is open. */
+        closePanels() {
+            this.closePeople()
+            this.settingsOpen = false
+        },
+
+        // ---- my own picture ---------------------------------------------------------
+
+        /** Drag the corner of my picture: towards the middle of the stage makes it bigger. */
+        startSelfResize(event) {
+            const stage = this.$refs.stage
+            const self = event.currentTarget.closest('[data-self-tile]')
+            if (! stage || ! self || event.button > 0) return
+            event.preventDefault()
+
+            const rtl = getComputedStyle(stage).direction === 'rtl'
+            const startX = event.clientX
+            const startWidth = self.getBoundingClientRect().width
+            const stageWidth = stage.getBoundingClientRect().width || 1
+            const move = (e) => this.setSelfSize((startWidth + (rtl ? e.clientX - startX : startX - e.clientX)) / stageWidth, false)
+            const up = () => {
+                window.removeEventListener('pointermove', move)
+                window.removeEventListener('pointerup', up)
+                if (this.selfSize) this.setSelfSize(this.selfSize)
+            }
+            window.addEventListener('pointermove', move)
+            window.addEventListener('pointerup', up)
+        },
+
+        /** From the keyboard: a step bigger (positive) or smaller. */
+        resizeSelf(step) {
+            const stage = this.$refs.stage
+            const self = stage?.querySelector('[data-self-tile]')
+            const current = this.selfSize ?? (stage && self ? self.getBoundingClientRect().width / (stage.getBoundingClientRect().width || 1) : 0.28)
+            this.setSelfSize(current + step)
+        },
+
+        setSelfSize(size, save = true) {
+            this.selfSize = Math.min(SELF_MAX, Math.max(SELF_MIN, size))
+            if (save) {
+                try { localStorage.setItem(SELF_SIZE_KEY, String(this.selfSize)) } catch {}
+            }
         },
 
         closePeople() {
@@ -588,10 +654,24 @@ export default function packstubHoller(config) {
             this.peopleLoaded = true
         },
 
-        /** Someone picked from the search: rung into the call. */
+        /**
+         * Someone picked from the search: rung into the call. The panel stays open: they show
+         * under "In this call" as Calling…, and the search starts over for the next one.
+         */
         pick(person) {
-            this.closePeople()
+            if (this.$refs.peopleSearch) this.$refs.peopleSearch.value = ''
             this.add(person.id)
+        },
+
+        /**
+         * Someone joined, declined, missed or left: who can be added changed, so the open search
+         * asks again for what is typed (someone who did not answer is back in the list).
+         */
+        refreshPeople() {
+            const roster = client.peers.map((peer) => `${peer.id}:${peer.status}`).join(',')
+            if (roster === peopleRoster) return
+            peopleRoster = roster
+            if (this.peopleOpen && this.canAdd) this.loadPeople(this.$refs.peopleSearch?.value ?? '')
         },
 
         /**
@@ -606,7 +686,25 @@ export default function packstubHoller(config) {
 
         /** The peer whose screen has the stage: the first one sharing with video coming in, or null. */
         get spotlight() {
-            return this.peers.find((peer) => peer.sharing && peer.hasVideo)?.id ?? null
+            return this.stagePeers.find((peer) => peer.sharing && peer.hasVideo)?.id ?? null
+        },
+
+        /**
+         * Who the stage shows: the people who answered. Someone rung into a running call waits
+         * off it ("Ringing Ana…"); while nobody has answered yet, the people I am ringing are the stage.
+         */
+        get stagePeers() {
+            const answered = this.peers.filter((peer) => peer.status !== 'ringing')
+            return answered.length ? answered : this.peers
+        },
+
+        /** Rung into the call and not answered yet, while others are on it. */
+        get ringingPeers() {
+            return this.peers.some((peer) => peer.status !== 'ringing') ? this.peers.filter((peer) => peer.status === 'ringing') : []
+        },
+
+        get ringingLabel() {
+            return fill(config.labels.inviting, { name: this.ringingPeers.map((peer) => peer.name).join(', ') })
         },
 
         /** A snapshot of the roster for the tiles. */
@@ -680,7 +778,7 @@ export default function packstubHoller(config) {
          * that moment; a closed one is taken back at once.
          */
         watchWindow() {
-            const orphaned = this.popOut && this.state === 'elsewhere' && this.call && ! this.call.held && this.call.status !== 'ended'
+            const orphaned = this.popOut && this.state === 'elsewhere' && this.call && ! this.call.claimed_elsewhere && this.call.status !== 'ended'
 
             if (! orphaned) {
                 clearTimeout(takeBackTimer)
@@ -904,10 +1002,10 @@ export default function packstubHoller(config) {
          * Tell the person something: a Filament notification where the page has them (every
          * panel page and the pop-out), the widget's own notice card otherwise.
          */
-        show(text, status = 'warning') {
+        show(text, status = 'warning', local = false) {
             if (! text) return
 
-            if (window.FilamentNotification && document.querySelector('.fi-no')) {
+            if (! local && window.FilamentNotification && document.querySelector('.fi-no')) {
                 const notification = new window.FilamentNotification().title(escapeHtml(text))
                 ;(status === 'info' ? notification.info() : notification.warning()).send()
                 return
@@ -924,7 +1022,7 @@ export default function packstubHoller(config) {
 
         /** Who is on the call with me, for the header and the chip. */
         get names() {
-            const names = this.peers.map((peer) => peer.name)
+            const names = this.stagePeers.map((peer) => peer.name)
             return names.length ? names.join(', ') : (this.call?.peer?.name ?? '')
         },
 
@@ -968,7 +1066,7 @@ export default function packstubHoller(config) {
             if (this.state === 'waiting') return config.labels.on_hold
             if (this.state === 'active') return this.elapsed
             if (this.state === 'elsewhere') {
-                if (this.call?.held) return this.call?.status === 'active' ? this.elapsed : config.labels.calling
+                if (this.call?.claimed_elsewhere) return this.call?.status === 'active' ? this.elapsed : config.labels.calling
                 return this.call?.status === 'ringing' ? config.labels.connecting : config.labels.window_closed
             }
             return ''

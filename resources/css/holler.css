@@ -1,9 +1,11 @@
 /*
  * packstub/filament-holler: the floating call widget.
  *
- * The cards (incoming call, chip, call window, notice) follow the panel's theme like Filament's
- * own dropdowns, modals and notifications: white or gray-900, a gray-950/5 ring, shadow-lg,
- * rounded-xl. Only the video stage and its tiles stay dark. Colours come from Filament's CSS
+ * The small cards (incoming call, chip, call on hold, question, notice) follow the panel's theme
+ * like Filament's own dropdowns and notifications: white or gray-900, a gray-950/5 ring, shadow-lg,
+ * rounded-xl. The call window is dark in both themes, like every call app: header, stage and
+ * controls on gray-950, the stage and the side panel as rounded panes on it (the side panel
+ * keeps the panel's theme, so Filament's inputs look as they do everywhere else). Colours come from Filament's CSS
  * variables (--gray-*, --primary-*, --danger-*, --success-*), so a custom panel colour carries
  * over; buttons are <x-filament::button>s. Logical properties throughout, for right-to-left panels.
  */
@@ -14,6 +16,9 @@
     --fi-holler-text: var(--gray-950);
     --fi-holler-text-muted: var(--gray-500);
     --fi-holler-overlay: color-mix(in oklab, var(--gray-950) 75%, transparent);
+    /* The theme's own colours, for the side panel inside the dark call window. */
+    --fi-holler-theme-text: var(--fi-holler-text);
+    --fi-holler-theme-muted: var(--fi-holler-text-muted);
 
     position: fixed;
     inset-inline-end: 1rem;
@@ -34,6 +39,8 @@
     --fi-holler-card-ring: color-mix(in oklab, white 10%, transparent);
     --fi-holler-text: white;
     --fi-holler-text-muted: var(--gray-400);
+    --fi-holler-theme-text: white;
+    --fi-holler-theme-muted: var(--gray-400);
 }
 
 .fi-holler-card {
@@ -133,29 +140,116 @@
 }
 
 .fi-holler-window {
+    --fi-holler-text: white;
+    --fi-holler-text-muted: var(--gray-400);
+
     width: min(24rem, calc(100vw - 2rem));
+    background: var(--gray-950);
+    color: white;
+    border-radius: 1rem;
+    box-shadow:
+        0 0 0 1px color-mix(in oklab, white 10%, transparent),
+        0 20px 40px -12px rgb(0 0 0 / 0.45);
+    /* The side panel docks beside the stage once the window is wide enough (see .fi-holler-side). */
+    container-type: inline-size;
+}
+
+/* The stage, and the People or Settings panel on its inline end: two rounded panes on the window. */
+.fi-holler-body {
+    position: relative;
+    display: flex;
+    gap: 0.5rem;
+    min-height: 0;
+    padding-inline: 0.5rem;
 }
 
 .fi-holler-header {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.75rem 1rem;
+    min-height: 3rem;
+    padding: 0.5rem 0.75rem 0.5rem 1rem;
 }
 
-/* The video stage: dark in both themes, like every picture of a call. */
+/* The call's clock, or what it is doing (Calling…, On hold). */
+.fi-holler-status {
+    flex: none;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    background: color-mix(in oklab, white 8%, transparent);
+    color: var(--gray-300);
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The video stage. */
 .fi-holler-stage {
     position: relative;
+    flex: 1;
+    min-width: 0;
     aspect-ratio: 4 / 3;
-    background: var(--gray-950);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: var(--gray-900);
     color: white;
 }
 
+/* Initials on the stage: a neutral disc that reads on the dark stage whatever the panel's colour. */
+.fi-holler-stage .fi-holler-avatar-initials {
+    background: var(--gray-700);
+    color: white;
+}
+
+/* Avatars (Filament's default ones are dark discs) get a faint ring so they read on the stage. */
+.fi-holler-stage .fi-holler-avatar { box-shadow: 0 0 0 1px color-mix(in oklab, white 14%, transparent); }
+
+/* Someone added to the call, rung but not on the stage until they answer. */
+.fi-holler-ringing {
+    position: absolute;
+    inset-block-start: 0.625rem;
+    inset-inline-start: 50%;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: calc(100% - 1.25rem);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    background: var(--fi-holler-overlay);
+    color: white;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform: translateX(-50%);
+    backdrop-filter: blur(4px);
+    pointer-events: none;
+}
+
+:where([dir="rtl"]) .fi-holler-ringing { transform: translateX(50%); }
+
+.fi-holler-ringing-dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: var(--success-500);
+    animation: fi-holler-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes fi-holler-blink { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .fi-holler-ringing-dot { animation: none; } }
+
+/* The whole picture, letterboxed on the dark stage, never cropped: a wide window must not cut off heads. */
 .fi-holler-remote {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
 }
 
@@ -177,7 +271,7 @@
     grid-template-rows: repeat(3, minmax(0, 1fr));
 }
 
-.fi-holler-tile[data-role="spotlight"] { grid-area: 1 / 1 / -1 / -1; background: var(--gray-950); }
+.fi-holler-tile[data-role="spotlight"] { grid-area: 1 / 1 / -1 / -1; }
 .fi-holler-stage[data-strip="top"] .fi-holler-tile[data-role="spotlight"] { grid-area: 2 / 1 / 3 / -1; }
 .fi-holler-stage[data-strip="right"] .fi-holler-tile[data-role="spotlight"] { grid-area: 1 / 1 / -1 / 2; }
 .fi-holler-stage[data-strip="top"] .fi-holler-tile[data-role="strip"] { grid-row: 1; }
@@ -199,7 +293,7 @@
     display: grid;
     width: 100%;
     height: 100%;
-    gap: 2px;
+    gap: 0.25rem;
     grid-template-columns: 1fr;
 }
 
@@ -218,6 +312,10 @@
     overflow: hidden;
     background: var(--gray-900);
 }
+
+/* Several people: each a rounded tile of its own on the darker stage. */
+.fi-holler-stage:has(.fi-holler-grid:not([data-count="1"])) { background: var(--gray-950); }
+.fi-holler-grid:not([data-count="1"]) .fi-holler-tile { border-radius: 0.5rem; }
 
 .fi-holler-grid[data-count="2"] .fi-holler-avatar-lg,
 .fi-holler-grid[data-count="3"] .fi-holler-avatar-lg,
@@ -274,16 +372,43 @@
     position: absolute;
     inset-inline-end: 0.5rem;
     inset-block-end: 0.5rem;
-    width: 28%;
+    /* A quarter of a small window, never a giant one on a wide screen (dragging the corner still can). */
+    width: min(28%, 16rem);
     aspect-ratio: 4 / 3;
     overflow: hidden;
-    border-radius: 0.5rem;
+    border-radius: 0.625rem;
     background: var(--gray-800);
     box-shadow:
-        0 0 0 1px color-mix(in oklab, white 10%, transparent),
-        0 4px 6px -1px rgb(0 0 0 / 0.3);
-    pointer-events: none;
+        0 0 0 1px color-mix(in oklab, white 12%, transparent),
+        0 8px 20px rgb(0 0 0 / 0.45);
+    max-width: calc(100% - 1rem);
+    max-height: calc(100% - 1rem);
 }
+
+/* The corner that resizes my picture (it sits at the inline end, so the handle is at the inline start), shown on hover and focus. */
+.fi-holler-self-resize {
+    position: absolute;
+    inset-block-start: 0.25rem;
+    inset-inline-start: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    background: var(--fi-holler-overlay);
+    color: white;
+    cursor: nwse-resize;
+    opacity: 0;
+    transition: opacity 150ms;
+    touch-action: none;
+}
+
+.fi-holler-self-resize-icon { width: 0.875rem; height: 0.875rem; }
+:where([dir="rtl"]) .fi-holler-self-resize { cursor: nesw-resize; }
+.fi-holler-self:hover .fi-holler-self-resize,
+.fi-holler-self-resize:focus-visible { opacity: 1; }
+@media (hover: none) { .fi-holler-self-resize { opacity: 0.8; } }
 
 .fi-holler-local {
     position: relative;
@@ -307,22 +432,26 @@
     font-size: 0.75rem;
 }
 
-/* My own mute, inside my picture: smaller than the other side's badges, and only the icon when the picture is small. */
+/* My own mute, inside my picture: a red round icon, the words in its tooltip and for screen readers. */
 .fi-holler-badge.fi-holler-self-badge {
     position: absolute;
-    inset-inline-start: 0.25rem;
-    inset-block-end: 0.25rem;
-    max-width: calc(100% - 0.5rem);
+    inset-inline-start: 0.375rem;
+    inset-block-end: 0.375rem;
     min-height: 0;
-    padding: 0.125rem 0.375rem;
-    font-size: 0.625rem;
-    white-space: nowrap;
+    padding: 0.25rem;
+    border-radius: 9999px;
     background: var(--danger-600);
+    pointer-events: auto;
 }
 
-.fi-holler-self-badge .fi-holler-badge-icon { width: 0.75rem; height: 0.75rem; }
-.fi-holler-self-badge-text { overflow: hidden; text-overflow: ellipsis; }
-.fi-holler-stage[data-spotlight] .fi-holler-self-badge-text { display: none; }
+.fi-holler-self-badge .fi-holler-badge-icon { width: 0.875rem; height: 0.875rem; }
+
+/* A badge that is only an icon (the other side's mute): round, the words in its tooltip. */
+.fi-holler-badge.fi-holler-badge-icon-only {
+    padding: 0.25rem;
+    border-radius: 9999px;
+    pointer-events: auto;
+}
 /* In the small frame of a spotlight stage the avatar shrinks and moves up, clear of the icon-only badge. */
 .fi-holler-stage[data-spotlight] .fi-holler-self-placeholder { align-items: flex-start; padding-block-start: 0.25rem; }
 .fi-holler-stage[data-spotlight] .fi-holler-avatar-sm { width: 1.5rem; height: 1.5rem; font-size: 0.5625rem; }
@@ -348,28 +477,106 @@
     flex: none;
 }
 
+/*
+ * The controls: round dark buttons with white icons on the dark window. A muted mic or a stopped
+ * camera turns red, a shared screen or an open panel turns light, and hang up is the wide red one.
+ * Set directly (not through Filament's colour variables), so the panel's colours cannot wash them out.
+ */
 .fi-holler-controls {
     justify-content: center;
-    padding: 0.75rem;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem 0.875rem;
 }
+
+.fi-holler-controls .fi-btn.fi-holler-round {
+    width: 2.75rem;
+    height: 2.75rem;
+    justify-content: center;
+    padding: 0;
+    background: color-mix(in oklab, white 10%, transparent);
+    color: white;
+    box-shadow: none;
+    transition: background-color 150ms, transform 150ms;
+}
+
+.fi-holler-controls .fi-btn.fi-holler-round:hover { background: color-mix(in oklab, white 18%, transparent); }
+.fi-holler-controls .fi-btn.fi-holler-round:active { transform: scale(0.95); }
+.fi-holler-controls .fi-btn.fi-holler-round:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.fi-holler-controls .fi-btn.fi-holler-round .fi-icon { color: inherit; }
+
+.fi-holler-controls .fi-btn.fi-holler-round.fi-color-danger { background: var(--danger-600); }
+.fi-holler-controls .fi-btn.fi-holler-round.fi-color-danger:hover { background: var(--danger-500); }
+
+.fi-holler-controls .fi-btn.fi-holler-round.fi-color-primary,
+.fi-holler-controls .fi-btn.fi-holler-round.fi-holler-pressed { background: white; color: var(--gray-950); }
+.fi-holler-controls .fi-btn.fi-holler-round.fi-color-primary:hover,
+.fi-holler-controls .fi-btn.fi-holler-round.fi-holler-pressed:hover { background: var(--gray-200); }
+
+.fi-holler-controls .fi-btn.fi-holler-round.fi-holler-hang-up { width: 3.75rem; }
 
 .fi-holler-badge.fi-holler-badge-warning {
     background: rgb(180 83 9 / 0.9);
     color: #fff;
 }
 
-/* The microphone, the camera and the speaker, between the stage and the controls. */
+/*
+ * The side panel (People, Settings), like the ones of Meet or Teams: over the stage in a narrow
+ * window, docked at the inline end of it once the window is wide enough.
+ */
+.fi-holler-side {
+    --fi-holler-text: var(--fi-holler-theme-text);
+    --fi-holler-text-muted: var(--fi-holler-theme-muted);
+
+    position: absolute;
+    inset-block: 0;
+    inset-inline: 0.5rem;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-radius: 0.75rem;
+    background: var(--fi-holler-card-bg);
+    color: var(--fi-holler-text);
+    overflow: hidden;
+}
+
+@container (min-width: 40rem) {
+    .fi-holler-side {
+        position: relative;
+        inset: auto;
+        flex: none;
+        width: 20rem;
+    }
+}
+
+.fi-holler-side-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 0.625rem 0.5rem 1rem;
+}
+
+.fi-holler-side-header .fi-holler-name { font-size: 0.9375rem; }
+
+.fi-holler-section-title {
+    color: var(--fi-holler-text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* The microphone, the camera and the speaker. */
 .fi-holler-settings {
     display: grid;
-    gap: 0.5rem;
-    padding: 0.75rem 0.75rem 0;
+    align-content: start;
+    gap: 0.75rem;
+    padding: 0 1rem 1rem;
+    overflow-y: auto;
 }
 
 .fi-holler-field {
     display: grid;
-    grid-template-columns: 6rem minmax(0, 1fr);
-    align-items: center;
-    gap: 0.5rem;
+    gap: 0.375rem;
 }
 
 .fi-holler-field-label {
@@ -379,23 +586,67 @@
 
 .fi-holler-notify { justify-self: start; text-align: start; }
 
-/* Adding someone: a search box and the people found, between the stage and the controls. */
+/* Who is on the call, then adding someone: a search box and the people found. */
 .fi-holler-people {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 0;
+    padding: 0 1rem 1rem;
+    overflow-y: auto;
+}
+
+.fi-holler-members {
+    display: grid;
+    gap: 0.125rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.fi-holler-member { padding: 0.375rem 0; }
+
+.fi-holler-member-text {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+}
+
+.fi-holler-member-text .fi-holler-name { font-weight: 500; }
+.fi-holler-member-text .fi-holler-muted { font-size: 0.75rem; line-height: 1rem; }
+.fi-holler-member-icon { display: inline-flex; color: var(--danger-600); }
+
+.fi-holler-invite {
     display: grid;
     gap: 0.5rem;
-    padding: 0.75rem 0.75rem 0;
+    padding-block-start: 0.75rem;
+    border-block-start: 1px solid var(--fi-holler-card-ring);
 }
 
 .fi-holler-people-list {
     display: grid;
     gap: 0.125rem;
-    max-height: 11rem;
-    overflow-y: auto;
+}
+
+/* The call icon at the end of a row of the search: what a click does, in green on hover. */
+.fi-holler-person-call {
+    display: inline-flex;
+    flex: none;
+    padding: 0.375rem;
+    border-radius: 9999px;
+    color: var(--fi-holler-text-muted);
+    transition: background-color 150ms, color 150ms;
+}
+
+.fi-holler-person-option:hover .fi-holler-person-call,
+.fi-holler-person-option:focus-visible .fi-holler-person-call {
+    background: var(--success-600);
+    color: white;
 }
 
 .fi-holler-person-option {
     width: 100%;
-    padding: 0.375rem 0.5rem;
+    padding: 0.375rem 0.375rem 0.375rem 0.5rem;
     border-radius: 0.5rem;
     text-align: start;
     cursor: pointer;
@@ -407,7 +658,7 @@
     outline: none;
 }
 
-.fi-holler-person-option .fi-holler-name { font-weight: 500; }
+.fi-holler-person-option .fi-holler-name { flex: 1; min-width: 0; font-weight: 500; }
 
 /* The call on hold: a quiet avatar, since nothing is happening there. */
 .fi-holler-held { min-width: 0; max-width: 24rem; }
@@ -462,9 +713,14 @@
     box-shadow: none;
 }
 
-.fi-holler-popup .fi-holler-stage {
+.fi-holler-popup .fi-holler-body {
     flex: 1;
+    padding-inline: 0.75rem;
     /* The videos must not grow the stage past the window: it shrinks to what is left. */
+    min-height: 0;
+}
+
+.fi-holler-popup .fi-holler-stage {
     min-height: 0;
     overflow: hidden;
     aspect-ratio: auto;
