@@ -32,4 +32,8 @@ class FilamentHollerIconAlias
     const SHARING = 'filament-holler::sharing';
 
     const CAMERA_OFF_BADGE = 'filament-holler::camera-off-badge';
+
+    const SETTINGS = 'filament-holler::settings';
+
+    const WEAK_CONNECTION = 'filament-holler::weak-connection';
 }

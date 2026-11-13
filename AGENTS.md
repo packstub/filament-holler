@@ -17,7 +17,9 @@ composer lint               # Pint
 composer build:js           # npm run build:js: copies node_modules/@packstub/holler/src/index.js to resources/dist/holler-core.js
                             # (npm install first; the dev dependency points at github:packstub/holler-js; dist is committed)
 composer serve              # workbench panel: Team page with Call buttons; ion@/ana@/mihai@example.com, password "password"
-composer test:e2e           # Playwright: two people call each other through the workbench panel (tests/e2e/calls.spec.js);
+composer test:e2e:firefox   # the same suite in Firefox (its own WebRTC stack; `npx playwright install firefox` once); run it before a
+                            # release. Playwright's WebKit has no fake camera: Safari is checked by hand
+composer test:e2e           # Playwright: two people call each other through the workbench panel (tests/e2e/holler.spec.js);
                             # starts the server itself on port 8787 (HOLLER_E2E_PORT), headless Chromium with a fake camera
                             # and microphone; `npx playwright install chromium` once
 ```
@@ -72,12 +74,13 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
 - `src/Actions/CallAction.php`: `alpineClickHandler` dispatching `filament-holler-call {user}` on `window`;
   `resolveIsHiddenInGroup()` adds `canCallUser()` to whatever `visible()`/`hidden()` the app sets, so an app can
   narrow the button but never show it for someone `isCallAllowed()` refuses.
-- `resources/lang/en/calls.php`: UI labels only (`filament-holler::calls.*`); server messages are the core's
+- The widget's settings (`deviceSettings()`: microphone, camera, speaker menus over `client.devices()` / `setDevice()`, remembered in localStorage `holler:devices`), the background-tab alert (`notifications()`: tab title, a system notification once allowed from the settings link) and the "Weak connection" badge (`peer.quality`) are drawn in `widget.blade.php` and driven by `resources/dist/holler.js`; the plain widget in `@packstub/holler` has the same three, so a change to one is usually a change to both. Toggles are two buttons each: `focusToggle()` waits for the new one to be on screen before focusing it (Firefox drops the focus otherwise).
+- `resources/lang/{en,de,ro,ru}/calls.php`: the same keys in every language (a test checks). `en`: UI labels only (`filament-holler::calls.*`); server messages are the core's
   `holler::messages.*`. `workbench/`, `testbench.yaml` (registers both providers, the core's first).
 - Tests: `WidgetTest`, `WindowTest` (pop-out, `popOut()`), `AccessTest` (canCall, tenancy, guard, verified email on the
   second fixture panel `verified`, MFA middleware, the action's visibility), `PanelRoutesTest` (the core routes under the panel,
   `canCall()` on the server, auth, CRLF through the panel route), `PanelContextTest`. The signaling logic
-  itself is tested in `packstub/holler`; run that suite too after a change there. `tests/e2e/calls.spec.js`
+  itself is tested in `packstub/holler`; run that suite too after a change there. `tests/e2e/holler.spec.js`
   (Playwright, `composer test:e2e`) is the only test that runs the real thing: two browser contexts, the pop-outs,
   WebRTC over loopback, a reload mid-call, mute and screen share seen by the other side, the main tab taking the
   call back when its pop-out closes, the page itself when `window.open` is blocked, a pop-out link without the token (neither rings nor answers), and a three-person call (Mihai

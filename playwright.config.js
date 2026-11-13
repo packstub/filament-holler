@@ -1,5 +1,5 @@
-// End-to-end: two signed-in people call each other through the workbench panel in headless
-// Chromium with a fake camera and microphone. `composer test:e2e` (the server is started here).
+// End-to-end: two signed-in people call each other through the workbench panel in a headless
+// browser with a fake camera and microphone. `composer test:e2e` (the server is started here).
 
 import { defineConfig, devices } from '@playwright/test'
 import { writeFileSync } from 'node:fs'
@@ -50,18 +50,48 @@ export default defineConfig({
     use: {
         baseURL: BASE_URL,
         trace: 'retain-on-failure',
-        permissions: ['camera', 'microphone'],
-        launchOptions: {
-            args: [
-                '--use-fake-ui-for-media-stream',
-                '--use-fake-device-for-media-stream',
-                `--use-file-for-fake-audio-capture=${silentWav()}`,
-                '--autoplay-policy=no-user-gesture-required',
-            ],
-        },
     },
 
-    projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+    // Chromium is the suite CI runs (`composer test:e2e`). Firefox runs the same calls on its own
+    // WebRTC stack with `composer test:e2e:firefox` (`npx playwright install firefox` once);
+    // Playwright's WebKit has no fake camera, so Safari is checked by hand before a release.
+    projects: [
+        {
+            name: 'chromium',
+            use: {
+                ...devices['Desktop Chrome'],
+                permissions: ['camera', 'microphone'],
+                launchOptions: {
+                    args: [
+                        '--use-fake-ui-for-media-stream',
+                        '--use-fake-device-for-media-stream',
+                        `--use-file-for-fake-audio-capture=${silentWav()}`,
+                        '--autoplay-policy=no-user-gesture-required',
+                    ],
+                },
+            },
+        },
+        {
+            name: 'firefox',
+            use: {
+                ...devices['Desktop Firefox'],
+                launchOptions: {
+                    firefoxUserPrefs: {
+                        // A fake camera and microphone, handed out without a prompt.
+                        'media.navigator.streams.fake': true,
+                        'media.navigator.permission.disabled': true,
+                        'media.autoplay.default': 0,
+                        'media.autoplay.blocking_policy': 0,
+                        // Loopback candidates, so two windows on one machine find each other.
+                        'media.peerconnection.ice.loopback': true,
+                        'media.peerconnection.ice.obfuscate_host_addresses': false,
+                        // Every test opens pop-outs.
+                        'dom.disable_open_during_load': false,
+                    },
+                },
+            },
+        },
+    ],
 
     webServer: {
         command: `php vendor/bin/testbench workbench:build && php vendor/bin/testbench serve --port=${PORT}`,

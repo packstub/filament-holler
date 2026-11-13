@@ -41,4 +41,13 @@ return [
     'ended_dropped' => 'Connection lost',
     'ended_busy' => 'Busy',
     'no_media' => 'Could not access your camera or microphone.',
+
+    'settings' => 'Settings',
+    'microphone' => 'Microphone',
+    'camera' => 'Camera',
+    'speaker' => 'Speaker',
+    'default_device' => 'System default',
+    'device_failed' => 'Could not switch to that device.',
+    'notify' => 'Notify me about calls when this tab is in the background',
+    'quality_poor' => 'Weak connection',
 ];

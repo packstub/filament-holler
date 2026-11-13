@@ -82,6 +82,7 @@
         "test": "pest",
         "test:filter": "pest --filter",
         "test:e2e": "npm run test:e2e --",
+        "test:e2e:firefox": "npm run test:e2e:firefox --",
         "lint": "pint",
         "lint:test": "pint --test",
         "build:js": "npm run build:js",

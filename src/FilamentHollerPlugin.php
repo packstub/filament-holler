@@ -32,6 +32,10 @@ class FilamentHollerPlugin implements Plugin
 
     protected int|Closure|null $maxParticipants = null;
 
+    protected bool|Closure $deviceSettings = true;
+
+    protected bool|Closure $notifications = true;
+
     public static function make(): static
     {
         return app(static::class);
@@ -103,6 +107,39 @@ class FilamentHollerPlugin implements Plugin
         $this->maxParticipants = $max;
 
         return $this;
+    }
+
+    /**
+     * The settings button in the call window, where people choose their microphone,
+     * camera and (where the browser can) speaker. On by default.
+     */
+    public function deviceSettings(bool|Closure $condition = true): static
+    {
+        $this->deviceSettings = $condition;
+
+        return $this;
+    }
+
+    /**
+     * Show a call that rings while the tab is in the background in the tab's title and,
+     * once the person allowed it from the call's settings, as a system notification.
+     * On by default.
+     */
+    public function notifications(bool|Closure $condition = true): static
+    {
+        $this->notifications = $condition;
+
+        return $this;
+    }
+
+    public function hasDeviceSettings(): bool
+    {
+        return (bool) $this->evaluate($this->deviceSettings);
+    }
+
+    public function hasNotifications(): bool
+    {
+        return (bool) $this->evaluate($this->notifications);
     }
 
     public function getMaxParticipants(): int

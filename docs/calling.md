@@ -77,3 +77,4 @@ Calls then start with the microphone only; either side can still share their scr
 
 - `filament-holler-call` on `window` with `{ user }` rings that user, or adds them to the call you are on. It is what `CallAction` dispatches, so any button or script can do the same: `$dispatch('filament-holler-call', { user: 5 })` in Alpine.
 - `filament-holler-sharing` bubbles from the widget with `{ peer, sharing, spotlight }` when someone's screen starts or stops taking the stage.
+- `filament-holler-quality` bubbles from the widget with `{ peer, quality, rtt, loss, relayed }` when the connection to someone changes between `good`, `fair` and `poor`.

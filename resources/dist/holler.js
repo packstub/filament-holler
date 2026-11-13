@@ -20,6 +20,22 @@ const ACTIVE_STATES = ['calling', 'connecting', 'active', 'reconnecting']
 // A pop-out that stopped holding the call for this long is gone, not reloading: the main tab takes the call back.
 const TAKE_BACK_DELAY = 3000
 
+// Where the chosen microphone, camera and speaker are remembered, per browser (shared with the plain widget).
+const DEVICES_KEY = 'holler:devices'
+
+// How fast the tab's title alternates while a call rings in the background.
+const TITLE_FLASH = 1000
+
+function loadDevices() {
+    try {
+        const { microphone = null, camera = null, speaker = null } = JSON.parse(localStorage.getItem(DEVICES_KEY) ?? '{}') ?? {}
+
+        return { microphone, camera, speaker }
+    } catch {
+        return {}
+    }
+}
+
 // What the opening page leaves in localStorage for the pop-out: { call, callee, at }, read once.
 const OPEN_TOKEN_KEY = 'holler:open:'
 const OPEN_TOKEN_TTL = 60000
@@ -133,6 +149,9 @@ export default function packstubHoller(config) {
     // Who is sharing a screen, so `filament-holler-sharing` fires only when that changes (a mute is a peerstate too).
     const sharingPeers = new Map()
     const ring = ringer()
+    let titleTimer = null
+    let titleBefore = null
+    let notification = null
 
     const windowUrl = (params) => config.windowUrl.replace('__ID__', encodeURIComponent(params.call ?? '')).replace('__USER__', encodeURIComponent(params.callee ?? ''))
 
@@ -152,6 +171,16 @@ export default function packstubHoller(config) {
         notice: null,
         popup: Boolean(config.popup),
         popOut: Boolean(config.popOut) && ! config.popup,
+        // What the view reads of the options: `devices` (the settings button) and `notifications`.
+        config: { devices: config.devices !== false, notifications: config.notifications !== false },
+        settingsOpen: false,
+        // What there is to choose from, each { id, label }, and what is chosen (null: the system default).
+        devices: { microphones: [], cameras: [], speakers: [] },
+        selected: { microphone: null, camera: null, speaker: null },
+        // Whether this browser can send the sound to a speaker of the person's choosing.
+        canPickSpeaker: typeof window.HTMLMediaElement?.prototype?.setSinkId === 'function',
+        // Whether the person can still be asked to allow system notifications.
+        canNotify: false,
 
         init() {
             const signaling = new HttpSignaling({
@@ -173,12 +202,16 @@ export default function packstubHoller(config) {
                 maxParticipants: config.maxParticipants,
                 // A tab that leaves calls to the pop-out never takes one over itself.
                 resumes: ! this.popOut,
+                // What the person chose last time in this browser.
+                devices: loadDevices(),
             }
 
             // The last word for the page: a script may change the options (a `topology` for an SFU, `channels`…).
             window.dispatchEvent(new CustomEvent('filament-holler-configure', { detail: options }))
 
             client = new CallClient(options)
+            this.selected = { ...client.selected }
+            this.syncNotify()
 
             client.addEventListener('statechange', ({ detail: { state } }) => {
                 this.state = state
@@ -186,6 +219,8 @@ export default function packstubHoller(config) {
                 this.sharing = client.sharing
 
                 this.syncUrl()
+                if (state !== 'ringing') this.clearAlert()
+                if (! ACTIVE_STATES.includes(state)) this.settingsOpen = false
 
                 ring.stop()
                 if (state === 'ringing') ring.play('ring')
@@ -198,7 +233,16 @@ export default function packstubHoller(config) {
             client.addEventListener('incoming', ({ detail: { call } }) => {
                 this.call = call
                 this.syncPeers()
+                this.alertIncoming()
             })
+            client.addEventListener('devices', ({ detail: { selected } }) => {
+                this.selected = { ...selected }
+                try { localStorage.setItem(DEVICES_KEY, JSON.stringify(selected)) } catch {}
+                this.applySpeaker()
+                if (this.settingsOpen) this.refreshDevices()
+            })
+            // How the connection to someone is doing changed its word (good, fair, poor).
+            client.addEventListener('quality', ({ detail }) => this.$dispatch('filament-holler-quality', detail))
             client.addEventListener('update', ({ detail: { call } }) => {
                 this.call = call
                 // The chip's clock counts from the answer, not from the ringing.
@@ -213,6 +257,8 @@ export default function packstubHoller(config) {
             client.addEventListener('localstream', ({ detail: { stream } }) => {
                 this.localVideo = (stream?.getVideoTracks().length ?? 0) > 0
                 this.attach(this.$refs.local, stream)
+                // The browser names the devices once the camera or the microphone is allowed.
+                if (this.settingsOpen) this.refreshDevices()
             })
             // A shared screen takes the stage: the look of every window on the call changes with it.
             client.addEventListener('peerstate', ({ detail: { peer, sharing } }) => {
@@ -261,6 +307,11 @@ export default function packstubHoller(config) {
             this.onLeave = () => client.leave()
             window.addEventListener('pagehide', this.onLeave)
 
+            // Back on the tab: the title and the notification have done their job.
+            this.onBack = () => { if (! document.hidden) this.clearAlert() }
+            document.addEventListener('visibilitychange', this.onBack)
+            window.addEventListener('focus', this.onBack)
+
             // The pop-out rings someone or answers only when the page that opened it asked (the token);
             // a link alone continues a call I am already in, or shows the one ringing me, with Accept.
             const opened = this.popup ? readOpenedFor() : null
@@ -296,6 +347,9 @@ export default function packstubHoller(config) {
             resizeObserver?.disconnect()
             window.removeEventListener('filament-holler-call', this.onCall)
             window.removeEventListener('pagehide', this.onLeave)
+            document.removeEventListener('visibilitychange', this.onBack)
+            window.removeEventListener('focus', this.onBack)
+            this.clearAlert()
             this.stopClock()
             clearTimeout(takeBackTimer)
             clearTimeout(closeTimer)
@@ -473,26 +527,42 @@ export default function packstubHoller(config) {
          * Each toggle is two buttons, one per state, and the one clicked hides: the focus moves
          * to the one that takes its place, so a keyboard user keeps their spot.
          */
-        keepFocus(name) {
-            if (document.activeElement?.closest?.('[data-holler-toggle]')?.dataset.hollerToggle !== name) return
-            this.$nextTick(() => [...this.$root.querySelectorAll(`[data-holler-toggle="${name}"]`)]
-                .find((button) => button.style.display !== 'none')?.focus())
+        onToggle(name) {
+            return document.activeElement?.closest?.('[data-holler-toggle]')?.dataset.hollerToggle === name
+        },
+
+        /**
+         * Focus the button of a toggle for its new state. Alpine shows an element a moment after
+         * it hides the other, and a hidden button cannot take the focus (Firefox drops it to the
+         * page): wait until the button is on screen.
+         */
+        focusToggle(name, pressed) {
+            const button = this.$root.querySelector(`[data-holler-toggle="${name}"][aria-pressed="${pressed}"]`)
+            if (! button) return
+
+            const focus = (tries = 0) => {
+                if (button.offsetParent === null && tries < 20) setTimeout(() => focus(tries + 1), 16)
+                else button.focus()
+            }
+            this.$nextTick(() => focus())
         },
 
         toggleMute() {
-            this.keepFocus('mute')
+            const focused = this.onToggle('mute')
             this.muted = ! this.muted
             client.setMuted(this.muted)
+            if (focused) this.focusToggle('mute', this.muted)
         },
 
         toggleCamera() {
-            this.keepFocus('camera')
+            const focused = this.onToggle('camera')
             this.cameraOff = ! this.cameraOff
             client.setCameraOff(this.cameraOff)
+            if (focused) this.focusToggle('camera', this.cameraOff)
         },
 
         async toggleShare() {
-            const focused = document.activeElement?.closest?.('[data-holler-toggle]')?.dataset.hollerToggle === 'share'
+            const focused = this.onToggle('share')
             try {
                 if (client.sharing) await client.stopSharing()
                 else await client.shareScreen()
@@ -500,13 +570,129 @@ export default function packstubHoller(config) {
                 // The person cancelled the picker.
             }
             this.sharing = client.sharing
-            if (focused) this.keepFocus('share')
+            if (focused) this.focusToggle('share', this.sharing)
         },
 
         attach(video, stream) {
             if (! video || video.srcObject === (stream ?? null)) return
             video.srcObject = stream ?? null
-            if (stream) video.play?.().catch(() => {})
+            if (stream) {
+                this.applySpeaker(video)
+                video.play?.().catch(() => {})
+            }
+        },
+
+        toggleSettings() {
+            this.settingsOpen = ! this.settingsOpen
+            if (this.settingsOpen) {
+                this.syncNotify()
+                this.refreshDevices()
+            }
+        },
+
+        /** What a device menu shows as chosen: the device, or the default when it is not listed (unplugged). */
+        chosen(kind) {
+            const list = this.devices[`${kind}s`] ?? []
+
+            return list.some((device) => device.id === this.selected[kind]) ? this.selected[kind] : ''
+        },
+
+        /** Ask the browser what there is to choose from. */
+        async refreshDevices() {
+            const { microphones, cameras, speakers, selected } = await client.devices()
+            this.devices = { microphones, cameras, speakers }
+            this.selected = { ...selected }
+        },
+
+        /** Choose a microphone, camera or speaker (empty: the system default); it applies at once and is remembered. */
+        async setDevice(kind, id) {
+            try {
+                await client.setDevice(kind, id || null)
+            } catch {
+                this.show(config.labels.device_failed)
+                // The menu goes back to the device still in use.
+                await this.refreshDevices()
+                this.selected = { ...this.selected }
+            }
+        },
+
+        /** Send the sound to the chosen speaker, where the browser can: one video, or every one on the call. */
+        applySpeaker(only = null) {
+            if (! this.canPickSpeaker) return
+            const speaker = client.selected.speaker ?? null
+
+            for (const media of only ? [only] : this.$root.querySelectorAll('video')) {
+                if ((media.__hollerSpeaker ?? null) === speaker) continue
+                media.__hollerSpeaker = speaker
+                // An unknown id (the speaker was unplugged) leaves the sound where it was.
+                try { media.setSinkId(speaker ?? '')?.catch?.(() => {}) } catch {}
+            }
+        },
+
+        syncNotify() {
+            this.canNotify = this.config.notifications && typeof window.Notification === 'function' && window.Notification.permission === 'default'
+        },
+
+        /** Ask the person to allow system notifications for incoming calls; browsers only ask after a click. */
+        async enableNotifications() {
+            if (typeof window.Notification !== 'function') return
+            try {
+                // Safari once took a callback and returned nothing.
+                await new Promise((resolve) => {
+                    const asked = window.Notification.requestPermission(resolve)
+                    asked?.then?.(resolve, resolve)
+                })
+            } catch {}
+            this.syncNotify()
+        },
+
+        /** A call rings while this tab is in the background: say so in the tab's title and, when allowed, with a system notification. */
+        alertIncoming() {
+            if (! this.config.notifications || this.state !== 'ringing') return
+            if (! document.hidden && document.hasFocus()) return
+
+            const title = fill(config.labels.incoming_from, { name: this.call?.peer?.name ?? '' })
+
+            if (titleTimer === null) {
+                titleBefore = document.title
+                let on = false
+                const flash = () => {
+                    on = ! on
+                    document.title = on ? title : titleBefore
+                }
+                flash()
+                titleTimer = setInterval(flash, TITLE_FLASH)
+            }
+
+            if (typeof window.Notification !== 'function' || window.Notification.permission !== 'granted') return
+
+            try {
+                notification?.close()
+                // One per call across every tab of mine that is open: the tag replaces, it does not stack.
+                notification = new window.Notification(title, {
+                    tag: `holler-call-${this.call?.id ?? ''}`,
+                    icon: /^(https?:|\/)/.test(this.call?.peer?.avatar ?? '') ? this.call.peer.avatar : undefined,
+                    requireInteraction: true,
+                })
+                notification.onclick = () => {
+                    window.focus()
+                    this.clearAlert()
+                }
+            } catch {
+                // Android Chrome only notifies through a service worker: the title and the ring remain.
+                notification = null
+            }
+        },
+
+        clearAlert() {
+            if (titleTimer !== null) {
+                clearInterval(titleTimer)
+                titleTimer = null
+                document.title = titleBefore
+                titleBefore = null
+            }
+            try { notification?.close() } catch {}
+            notification = null
         },
 
         startClock() {

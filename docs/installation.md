@@ -18,7 +18,7 @@ php artisan migrate
 php artisan filament:assets
 ```
 
-The migration (the `calls`, `call_participants` and `call_signals` tables) comes from `packstub/holler` and runs from the package; there is nothing to publish. Run `php artisan filament:assets` again after every update of the package, so the browser gets the new widget.
+The migration (the `holler_calls`, `holler_call_participants` and `holler_call_signals` tables) comes from `packstub/holler` and runs from the package; there is nothing to publish. Run `php artisan filament:assets` again after every update of the package, so the browser gets the new widget.
 
 ## Register the plugin
 
