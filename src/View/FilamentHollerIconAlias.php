@@ -36,4 +36,20 @@ class FilamentHollerIconAlias
     const SETTINGS = 'filament-holler::settings';
 
     const WEAK_CONNECTION = 'filament-holler::weak-connection';
+
+    const ADD_PERSON = 'filament-holler::add-person';
+
+    const HOLD = 'filament-holler::hold';
+
+    const RESUME = 'filament-holler::resume';
+
+    const ON_HOLD = 'filament-holler::on-hold';
+
+    const SEARCH = 'filament-holler::search';
+
+    const PEOPLE = 'filament-holler::people';
+
+    const CLOSE_PANEL = 'filament-holler::close-panel';
+
+    const RESIZE_SELF = 'filament-holler::resize-self';
 }

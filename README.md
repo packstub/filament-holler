@@ -20,7 +20,8 @@ Audio, video and screen-share calls between the users of a Filament panel, one o
 
 - **[A Call button for any user](#the-call-action)**: `CallAction` on a table row, a page header or an infolist.
 - **[A call widget on every page](#the-call-widget)**: an incoming-call toast, then a floating window with mute, camera, screen share and hang up, in the panel's theme.
-- **[Group calls](#group-calls)**: on a call, the same button adds someone to it, up to four people.
+- **[Group calls](#group-calls)**: add someone from a search box in the call window, or from their Call button, up to four people.
+- **[Calls on hold](#calls-on-hold)**: put a call on hold, ring someone else and swap back with Resume.
 - **[Calls that survive a page load](#where-the-call-lives)**: in a pop-out window, or in the page itself in SPA mode; a reload reconnects within seconds.
 - **[Who may call whom](#who-may-call-whom)**: `canCall()`, tenant-aware by default, checked on the server.
 - **[STUN and TURN](#stun-and-turn)**: a free public STUN server out of the box, your own TURN relay through env variables or per panel, with credentials that expire per call.
@@ -108,7 +109,7 @@ Read more: [Who may call whom](https://packstub.dev/docs/filament-holler/calling
 
 ## Group calls
 
-While on a call, clicking Call on another person adds them to it. Once they accept, everyone connects to them, and the window shows a tile per other participant. The browsers connect to each other directly, so four people is the default limit:
+While on a call, the Add someone button in the call window finds people by name, and clicking Call on another person asks what to do: add them to the call, put the call on hold and ring them, or end it and ring them. Once the person accepts, everyone connects to them, and the window shows a tile per other participant. The browsers connect to each other directly, so four people is the default limit:
 
 ```php
 FilamentHollerPlugin::make()->maxParticipants(3)   // or HOLLER_MAX_PARTICIPANTS in .env
@@ -117,6 +118,12 @@ FilamentHollerPlugin::make()->maxParticipants(3)   // or HOLLER_MAX_PARTICIPANTS
 Someone who hangs up leaves the call for the others. `->video(false)` makes the panel's calls voice calls; either side can still share their screen.
 
 Read more: [Group calls](https://packstub.dev/docs/filament-holler/calling#group-calls).
+
+## Calls on hold
+
+Put on hold in the call window steps you out of a call without leaving it: the others stay on it and see that you put it on hold. The call waits in a small bar with Resume and End while you ring someone else, and Resume swaps the two calls. One call on hold at a time.
+
+Read more: [Calls on hold](https://packstub.dev/docs/filament-holler/calling#calls-on-hold).
 
 ## Where the call lives
 
@@ -131,7 +138,7 @@ Read more: [Where the call lives](https://packstub.dev/docs/filament-holler/the-
 
 ## STUN and TURN
 
-Calls work right after the install: the default is Google's public STUN server, free and without an account (`HOLLER_STUN_URL` takes another one), and most calls then go straight from browser to browser. People behind a strict NAT, a VPN or a corporate firewall need a TURN relay; point the plugin at yours:
+Calls work right after the install: the default is Google's public STUN server, free and without an account (`HOLLER_STUN_URL` takes another one), and most calls then go straight from browser to browser. People on one network (an office, a VPN) need no server at all. People behind a strict NAT, a VPN or a corporate firewall need a TURN relay; point the plugin at yours:
 
 ```dotenv
 HOLLER_TURN_URL=turn:turn.example.com:3478,turns:turn.example.com:443?transport=tcp

@@ -15,12 +15,21 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\URL;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Packstub\FilamentHoller\FilamentHollerPlugin;
 use Workbench\App\Filament\Resources\Users\UserResource;
 
 class AdminPanelProvider extends PanelProvider
 {
+    public function boot(): void
+    {
+        // HOLLER_HTTPS=1 behind an HTTPS tunnel (cloudflared, for testing on a phone): URLs come out as https.
+        if (env('HOLLER_HTTPS')) {
+            URL::forceScheme('https');
+        }
+    }
+
     public function panel(Panel $panel): Panel
     {
         return $panel

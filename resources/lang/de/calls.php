@@ -40,6 +40,7 @@ return [
     'ended_failed' => 'Verbindung fehlgeschlagen',
     'ended_dropped' => 'Verbindung verloren',
     'ended_busy' => 'Besetzt',
+    'ended_signed_out' => 'Du wurdest abgemeldet. Melde dich erneut an, um anzurufen.',
     'no_media' => 'Kein Zugriff auf deine Kamera oder dein Mikrofon.',
 
     'settings' => 'Einstellungen',
@@ -50,4 +51,25 @@ return [
     'device_failed' => 'Der Wechsel zu diesem Gerät hat nicht geklappt.',
     'notify' => 'Über Anrufe benachrichtigen, wenn dieser Tab im Hintergrund ist',
     'quality_poor' => 'Schwache Verbindung',
+
+    'add_person' => 'Jemanden hinzufügen',
+    'search_people' => 'Personen suchen…',
+    'no_people' => 'Niemand gefunden',
+    'already_on_call' => 'Bereits in diesem Anruf',
+    'on_call_title' => 'Du bist in einem Anruf',
+    'add_to_call' => 'Zu diesem Anruf hinzufügen',
+    'hold_and_call' => 'Diesen Anruf halten und einen neuen starten',
+    'end_and_call' => 'Diesen Anruf beenden und einen neuen starten',
+    'cancel' => 'Abbrechen',
+    'hold' => 'Anruf halten',
+    'on_hold' => 'Gehalten',
+    'resume' => 'Fortsetzen',
+    'peer_on_hold' => ':name hält den Anruf',
+    'held_ended' => 'Der gehaltene Anruf wurde beendet',
+
+    'people' => 'Personen',
+    'in_call' => 'In diesem Anruf',
+    'you' => 'Du',
+    'close' => 'Schließen',
+    'resize_self' => 'Ziehen, um dein Bild zu vergrößern oder zu verkleinern',
 ];

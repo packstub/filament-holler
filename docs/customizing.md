@@ -17,7 +17,9 @@ FilamentIcon::register([
 | Alias | Where | Default |
 | --- | --- | --- |
 | `filament-holler::accept`, `::decline` | incoming call | phone, phone-x-mark |
-| `filament-holler::hang-up` | call window and chip | phone-x-mark |
+| `filament-holler::hang-up` | call window, chip, the bar of a call on hold and "End this call" in the question | phone-x-mark |
+| `filament-holler::add-person`, `::search` | the Add someone button (and "Add to this call" in the question), its search box | user-plus, magnifying-glass |
+| `filament-holler::hold`, `::resume`, `::on-hold` | Put on hold (and "Hold this call" in the question), Resume, the bar of a call on hold | pause, play, pause |
 | `filament-holler::open-window` | chip | arrow-top-right-on-square |
 | `filament-holler::mute`, `::unmute` | the button that mutes (shown while live), the one that unmutes (shown while muted) | microphone, a microphone with a slash |
 | `filament-holler::camera-off`, `::camera-on` | the button that turns the camera off (shown while on), the one that turns it on | video-camera, video-camera-slash |

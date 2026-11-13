@@ -41,7 +41,7 @@ it('registers the core routes under the panel and runs a call through them', fun
     $this->actingAs($this->ana)->getJson(callsRoute('poll'))->assertJsonPath('incoming.id', $call->id)->assertJsonPath('incoming.peer.name', 'Ion');
     $this->actingAs($this->ion)->postJson(callsRoute('signal', ['call' => $call]), ['type' => 'offer', 'payload' => ['sdp' => 'v=0']])->assertCreated();
     $this->actingAs($this->ana)->postJson(callsRoute('answer', ['call' => $call]), ['tab' => 'ana-1'])->assertOk()->assertJsonPath('status', 'active');
-    $this->actingAs($this->ana)->getJson(callsRoute('poll', ['call' => $call->id, 'tab' => 'ana-1', 'hold' => 1]))->assertJsonPath('signals.0.type', 'offer');
+    $this->actingAs($this->ana)->getJson(callsRoute('poll', ['call' => $call->id, 'tab' => 'ana-1', 'claim' => 1]))->assertJsonPath('signals.0.type', 'offer');
     $this->actingAs($this->ana)->post(callsRoute('leave', ['call' => $call]), ['tab' => 'ana-1'])->assertNoContent();
     $this->actingAs($this->ion)->postJson(callsRoute('hangup', ['call' => $call]))->assertOk()->assertJsonPath('end_reason', 'hung_up');
 
@@ -80,7 +80,7 @@ it('keeps a session description byte for byte through the panel route, trailing 
     $sdp = "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\na=ssrc:1 msid:a b\r\n";
     $this->actingAs($this->ion)->postJson(callsRoute('signal', ['call' => $call]), ['type' => 'offer', 'payload' => ['sdp' => $sdp]])->assertCreated();
 
-    expect($this->actingAs($this->ana)->getJson(callsRoute('poll', ['call' => $call->id, 'tab' => 'tab', 'hold' => 1]))->json('signals.0.payload.sdp'))->toBe($sdp);
+    expect($this->actingAs($this->ana)->getJson(callsRoute('poll', ['call' => $call->id, 'tab' => 'tab', 'claim' => 1]))->json('signals.0.payload.sdp'))->toBe($sdp);
 });
 
 it('adds a third person through the panel route, within the plugin\'s limit', function (): void {
@@ -105,6 +105,6 @@ it('adds a third person through the panel route, within the plugin\'s limit', fu
 
     // Signals can be addressed to one person and say who sent them.
     $this->actingAs($this->ion)->postJson(callsRoute('signal', ['call' => $call]), ['type' => 'offer', 'payload' => ['sdp' => 'v=0'], 'to' => (string) $this->ana->getKey()])->assertCreated();
-    $this->actingAs($this->ana)->getJson(callsRoute('poll', ['call' => $call->id, 'tab' => 'ana-1', 'hold' => 1]))
+    $this->actingAs($this->ana)->getJson(callsRoute('poll', ['call' => $call->id, 'tab' => 'ana-1', 'claim' => 1]))
         ->assertJsonPath('signals.0.from', (string) $this->ion->getKey());
 });

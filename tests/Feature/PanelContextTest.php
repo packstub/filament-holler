@@ -90,3 +90,28 @@ it('answers who may call, the ICE servers and video from the plugin, with the co
     expect($context->canCall($this->ion, $this->ana))->toBeTrue();
     app(AppContext::class)->canCallUsing(null);
 });
+
+it('finds the panel\'s users for Add someone, or whoever the plugin\'s own search finds, and holds a call through the panel routes', function (): void {
+    $mihai = user('Mihai');
+    $this->actingAs($this->ion);
+
+    $names = fn (string $query): array => collect(Holler::people($this->ion, $query))->pluck('name')->all();
+
+    expect($names(''))->toBe(['Ana', 'Mihai'])
+        ->and($names('mih'))->toBe(['Mihai'])
+        ->and($names('ana@'))->toBe([]);
+
+    $this->getJson('/admin/filament-holler/calls/people?q=an')->assertOk()->assertJsonPath('people.0.name', 'Ana')->assertJsonCount(1, 'people');
+
+    FilamentHollerPlugin::get()->searchUsersUsing(fn ($caller, string $query, int $limit) => [$mihai]);
+
+    expect($names('ana'))->toBe(['Mihai']);
+
+    FilamentHollerPlugin::get()->searchUsersUsing(null);
+
+    $id = $this->postJson('/admin/filament-holler/calls', ['callee' => $this->ana->getKey(), 'tab' => 'ion-1'])->assertCreated()->json('id');
+    $this->actingAs($this->ana)->postJson("/admin/filament-holler/calls/{$id}/answer", ['tab' => 'ana-1'])->assertOk();
+    $this->actingAs($this->ion)->postJson("/admin/filament-holler/calls/{$id}/hold")->assertOk()->assertJsonPath('on_hold', true);
+    $this->getJson('/admin/filament-holler/calls/poll')->assertJsonPath('on_hold.id', $id)->assertJsonPath('call', null);
+    $this->postJson("/admin/filament-holler/calls/{$id}/resume", ['tab' => 'ion-1'])->assertOk()->assertJsonPath('joined', true);
+});

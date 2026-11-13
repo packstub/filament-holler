@@ -26,6 +26,17 @@ it('renders the call widget on every panel page with the panel routes, and no IC
         ->assertSee($js(url('/admin/filament-holler/calls/poll')), escape: false)
         ->assertSee($js(url('/admin/filament-holler/calls/__ID__/answer')), escape: false)
         ->assertSee($js(url('/admin/filament-holler/calls/__ID__/invite')), escape: false)
+        ->assertSee($js(url('/admin/filament-holler/calls/__ID__/hold')), escape: false)
+        ->assertSee($js(url('/admin/filament-holler/calls/__ID__/resume')), escape: false)
+        ->assertSee($js(url('/admin/filament-holler/calls/people')), escape: false)
+        ->assertSee('data-holler-add-person', escape: false)
+        ->assertSee('data-holler-people-search', escape: false)
+        ->assertSee('data-holler-hold', escape: false)
+        ->assertSee('data-holler-held', escape: false)
+        ->assertSee('data-holler-resume', escape: false)
+        ->assertSee('data-holler-prompt-option="hold"', escape: false)
+        ->assertSee('Hold this call and start a new one')
+        ->assertSee('data-peer="on-hold"', escape: false)
         ->assertSee('\\u0022maxParticipants\\u0022:4', escape: false)
         ->assertSee('data-peer-id', escape: false)
         ->assertSee('x-persist="filament-holler.admin"', escape: false)
@@ -56,7 +67,7 @@ it('shows my avatar in my own corner on a voice-only panel, where my stream has 
         ->assertSee('x-show="selfPlaceholder"', escape: false)
         ->assertSee("'fi-holler-hidden': selfPlaceholder", escape: false);
 
-    $js = file_get_contents(__DIR__.'/../../resources/dist/holler.js');
+    $js = file_get_contents(__DIR__.'/../../resources/js/holler.js');
     expect($js)->toContain('this.localVideo = (stream?.getVideoTracks().length ?? 0) > 0')
         ->toContain('return (this.cameraOff || ! this.localVideo) && ! this.sharing');
 
@@ -109,8 +120,8 @@ it('draws its icons from aliases an app can point elsewhere, and Filament button
             ->and($after)->toContain($path($icon));
     }
 
-    // Hang up is on the chip and in the window.
-    expect(substr_count($after, $path('heroicon-o-x-circle')))->toBe(2);
+    // Hang up is on the chip and in the window, ends the call on hold, and is "End this call" in the question.
+    expect(substr_count($after, $path('heroicon-o-x-circle')))->toBe(4);
 
     FilamentIcon::register([
         FilamentHollerIconAlias::HANG_UP => null,
@@ -132,7 +143,7 @@ it('hides the call action for the signed-in user and hands the widget the user i
 
     expect(CallAction::make()->user($ion)->isVisible())->toBeFalse()
         ->and(CallAction::make()->user($ana)->isVisible())->toBeTrue()
-        ->and(CallAction::make()->user($ana)->getAlpineClickHandler())->toBe("\$dispatch('filament-holler-call', { user: '{$ana->getKey()}' })")
+        ->and(CallAction::make()->user($ana)->getAlpineClickHandler())->toBe("\$dispatch('filament-holler-call', { user: '{$ana->getKey()}', name: 'Ana' })")
         ->and(CallAction::make()->user(null)->isVisible())->toBeFalse();
 });
 
@@ -145,7 +156,7 @@ it('shows a Call button on every other user in a table and hands it the user id'
     livewire(ListUsers::class)
         ->assertTableActionVisible('call', $ana)
         ->assertTableActionHidden('call', $ion)
-        ->assertSee("\$dispatch('filament-holler-call', { user: '{$ana->getKey()}' })", escape: false);
+        ->assertSee("\$dispatch('filament-holler-call', { user: '{$ana->getKey()}', name: 'Ana' })", escape: false);
 });
 
 it('keeps one widget per panel across SPA page loads, with that panel\'s routes', function (): void {
@@ -219,4 +230,12 @@ it('signs TURN credentials that expire for a server with a secret, per panel', f
         ]);
 
     FilamentHollerPlugin::get()->iceServers(null);
+});
+
+it('leaves the people route out of the widget when the search is off', function (): void {
+    config()->set('holler.people_search', false);
+
+    $this->actingAs(user('Ion'))->get('/admin')
+        ->assertOk()
+        ->assertSee('\\u0022people\\u0022:null', escape: false);
 });

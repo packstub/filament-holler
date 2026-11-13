@@ -137,6 +137,10 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      # resources/dist is committed: it must be what the sources and the locked engine build to.
+      - name: Check that the built assets are up to date
+        run: npm run build:js:check
+
       - name: Run the end-to-end suite
         run: npx playwright test --project=chromium
 

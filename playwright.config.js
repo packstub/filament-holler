@@ -8,6 +8,9 @@ import { join } from 'node:path'
 
 const PORT = Number(process.env.HOLLER_E2E_PORT || 8787)
 const BASE_URL = `http://127.0.0.1:${PORT}`
+// The same workbench as an SPA panel without the pop-out, for tests/e2e/spa.spec.js.
+const SPA_PORT = PORT + 1
+const SPA_URL = `http://127.0.0.1:${SPA_PORT}`
 
 /**
  * Without a file for the fake microphone, Chrome on macOS asks for the real one and
@@ -52,27 +55,24 @@ export default defineConfig({
         trace: 'retain-on-failure',
     },
 
-    // Chromium is the suite CI runs (`composer test:e2e`). Firefox runs the same calls on its own
-    // WebRTC stack with `composer test:e2e:firefox` (`npx playwright install firefox` once);
-    // Playwright's WebKit has no fake camera, so Safari is checked by hand before a release.
+    // Chromium is the suite CI runs (`composer test:e2e`): the pop-out panel (`chromium`) and the
+    // SPA panel without it (`chromium-spa`). Firefox runs the pop-out calls on its own WebRTC stack
+    // with `composer test:e2e:firefox` (`npx playwright install firefox` once); Playwright's WebKit
+    // has no fake camera, so Safari is checked by hand before a release.
     projects: [
         {
             name: 'chromium',
-            use: {
-                ...devices['Desktop Chrome'],
-                permissions: ['camera', 'microphone'],
-                launchOptions: {
-                    args: [
-                        '--use-fake-ui-for-media-stream',
-                        '--use-fake-device-for-media-stream',
-                        `--use-file-for-fake-audio-capture=${silentWav()}`,
-                        '--autoplay-policy=no-user-gesture-required',
-                    ],
-                },
-            },
+            testIgnore: /spa\.spec\.js/,
+            use: chromium(),
+        },
+        {
+            name: 'chromium-spa',
+            testMatch: /spa\.spec\.js/,
+            use: { ...chromium(), baseURL: SPA_URL },
         },
         {
             name: 'firefox',
+            testIgnore: /spa\.spec\.js/,
             use: {
                 ...devices['Desktop Firefox'],
                 launchOptions: {
@@ -93,12 +93,40 @@ export default defineConfig({
         },
     ],
 
-    webServer: {
-        command: `php vendor/bin/testbench workbench:build && php vendor/bin/testbench serve --port=${PORT}`,
-        url: `${BASE_URL}/admin/login`,
-        reuseExistingServer: ! process.env.CI,
-        timeout: 180_000,
-        stdout: 'ignore',
-        stderr: 'pipe',
-    },
+    webServer: [
+        {
+            command: `php vendor/bin/testbench workbench:build && php vendor/bin/testbench serve --port=${PORT}`,
+            url: `${BASE_URL}/admin/login`,
+            reuseExistingServer: ! process.env.CI,
+            timeout: 180_000,
+            stdout: 'ignore',
+            stderr: 'pipe',
+        },
+        {
+            // The same app and database (the build above made it); `--no-reload` passes the two variables through.
+            command: `php vendor/bin/testbench serve --port=${SPA_PORT} --no-reload`,
+            env: { HOLLER_SPA: '1', HOLLER_POP_OUT: 'false' },
+            url: `${SPA_URL}/admin/login`,
+            reuseExistingServer: ! process.env.CI,
+            timeout: 180_000,
+            stdout: 'ignore',
+            stderr: 'pipe',
+        },
+    ],
 })
+
+/** Headless Chromium with a fake camera and microphone, handed out without a prompt. */
+function chromium() {
+    return {
+        ...devices['Desktop Chrome'],
+        permissions: ['camera', 'microphone'],
+        launchOptions: {
+            args: [
+                '--use-fake-ui-for-media-stream',
+                '--use-fake-device-for-media-stream',
+                `--use-file-for-fake-audio-capture=${silentWav()}`,
+                '--autoplay-policy=no-user-gesture-required',
+            ],
+        },
+    }
+}
