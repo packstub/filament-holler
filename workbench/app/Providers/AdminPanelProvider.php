@@ -16,7 +16,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Packstub\FilamentCalls\FilamentCallsPlugin;
+use Packstub\FilamentHoller\FilamentHollerPlugin;
 use Workbench\App\Filament\Resources\Users\UserResource;
 
 class AdminPanelProvider extends PanelProvider
@@ -28,13 +28,13 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->spa((bool) env('CALLS_SPA', false))
+            ->spa((bool) env('HOLLER_SPA', false))
             ->pages([Dashboard::class])
             ->resources([UserResource::class])
             ->colors(['primary' => Color::Indigo])
             ->plugins([
-                // CALLS_POP_OUT=true|false forces the pop-out; unset, it follows SPA mode.
-                FilamentCallsPlugin::make()->popOut(env('CALLS_POP_OUT') === null ? null : filter_var(env('CALLS_POP_OUT'), FILTER_VALIDATE_BOOL)),
+                // HOLLER_POP_OUT=true|false forces the pop-out; unset, it follows SPA mode.
+                FilamentHollerPlugin::make()->popOut(env('HOLLER_POP_OUT') === null ? null : filter_var(env('HOLLER_POP_OUT'), FILTER_VALIDATE_BOOL)),
             ])
             ->middleware([
                 EncryptCookies::class,

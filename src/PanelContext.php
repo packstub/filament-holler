@@ -1,17 +1,17 @@
 <?php
 
-namespace Packstub\FilamentCalls;
+namespace Packstub\FilamentHoller;
 
 use Filament\Facades\Filament;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use Packstub\Calls\AppContext;
-use Packstub\Calls\Contracts\CallContext;
+use Packstub\Holler\AppContext;
+use Packstub\Holler\Contracts\CallContext;
 
 /**
  * The call context of a Filament app: the current panel's guard, its user
- * names and avatars, and the options of the FilamentCallsPlugin registered
+ * names and avatars, and the options of the FilamentHollerPlugin registered
  * on it. Outside a panel, or on a panel without the plugin, it answers like
  * a plain app.
  */
@@ -19,16 +19,16 @@ class PanelContext implements CallContext
 {
     public function __construct(protected AppContext $app) {}
 
-    public function plugin(): ?FilamentCallsPlugin
+    public function plugin(): ?FilamentHollerPlugin
     {
         $panel = $this->panel();
 
-        if (! $panel?->hasPlugin('filament-calls')) {
+        if (! $panel?->hasPlugin('filament-holler')) {
             return null;
         }
 
-        /** @var FilamentCallsPlugin $plugin */
-        $plugin = $panel->getPlugin('filament-calls');
+        /** @var FilamentHollerPlugin $plugin */
+        $plugin = $panel->getPlugin('filament-holler');
 
         return $plugin;
     }

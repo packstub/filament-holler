@@ -1,15 +1,15 @@
 <?php
 
 use Illuminate\Support\Facades\Event;
-use Packstub\Calls\Events\CallEnded;
-use Packstub\Calls\Events\CallStarted;
-use Packstub\Calls\Models\Call;
-use Packstub\Calls\Models\CallSignal;
-use Packstub\FilamentCalls\FilamentCallsPlugin;
-use Packstub\FilamentCalls\Tests\Fixtures\User;
+use Packstub\FilamentHoller\FilamentHollerPlugin;
+use Packstub\FilamentHoller\Tests\Fixtures\User;
+use Packstub\Holler\Events\CallEnded;
+use Packstub\Holler\Events\CallStarted;
+use Packstub\Holler\Models\Call;
+use Packstub\Holler\Models\CallSignal;
 
 /*
- * The signaling logic itself is tested in packstub/calls. These tests cover what
+ * The signaling logic itself is tested in packstub/holler. These tests cover what
  * the panel adds: the routes under the panel's prefix and auth, the plugin's
  * canCall(), and names from the panel.
  */
@@ -22,11 +22,11 @@ beforeEach(function (): void {
 it('registers the core routes under the panel and runs a call through them', function (): void {
     Event::fake([CallStarted::class, CallEnded::class]);
 
-    expect(callsRoute('poll'))->toBe(url('/admin/filament-calls/calls/poll'))
-        ->and(callsRoute('store'))->toBe(url('/admin/filament-calls/calls'))
-        ->and(callsRoute('signal', ['call' => 7]))->toBe(url('/admin/filament-calls/calls/7/signals'))
-        ->and(callsRoute('invite', ['call' => 7]))->toBe(url('/admin/filament-calls/calls/7/invite'))
-        ->and(callsRoute('window'))->toBe(url('/admin/filament-calls/window'));
+    expect(callsRoute('poll'))->toBe(url('/admin/filament-holler/calls/poll'))
+        ->and(callsRoute('store'))->toBe(url('/admin/filament-holler/calls'))
+        ->and(callsRoute('signal', ['call' => 7]))->toBe(url('/admin/filament-holler/calls/7/signals'))
+        ->and(callsRoute('invite', ['call' => 7]))->toBe(url('/admin/filament-holler/calls/7/invite'))
+        ->and(callsRoute('window'))->toBe(url('/admin/filament-holler/window'));
 
     $this->actingAs($this->ion)
         ->postJson(callsRoute('store'), ['callee' => $this->ana->getKey(), 'tab' => 'win-a'])
@@ -50,14 +50,14 @@ it('registers the core routes under the panel and runs a call through them', fun
 });
 
 it('refuses a call the panel says no to, on the server', function (): void {
-    FilamentCallsPlugin::get()->canCall(fn (User $caller, User $callee): bool => $callee->name !== 'Ana');
+    FilamentHollerPlugin::get()->canCall(fn (User $caller, User $callee): bool => $callee->name !== 'Ana');
 
     $this->actingAs($this->ion)->postJson(callsRoute('store'), ['callee' => $this->ana->getKey()])
         ->assertStatus(422)
         ->assertJsonPath('message', 'This person cannot be called.');
     $this->actingAs($this->ana)->postJson(callsRoute('store'), ['callee' => $this->ion->getKey()])->assertCreated();
 
-    FilamentCallsPlugin::get()->canCall(null);
+    FilamentHollerPlugin::get()->canCall(null);
 
     $this->actingAs($this->ion)->postJson(callsRoute('store'), ['callee' => $this->ion->getKey()])->assertStatus(422);
 });
@@ -97,11 +97,11 @@ it('adds a third person through the panel route, within the plugin\'s limit', fu
     $this->actingAs($mihai)->getJson(callsRoute('poll'))->assertJsonPath('incoming.id', $call->id)->assertJsonCount(2, 'incoming.peers');
 
     // The plugin's limit is the server's.
-    FilamentCallsPlugin::get()->maxParticipants(3);
+    FilamentHollerPlugin::get()->maxParticipants(3);
     $this->actingAs($this->ion)->postJson(callsRoute('invite', ['call' => $call]), ['callee' => user('Dana')->getKey()])
         ->assertStatus(422)
         ->assertJsonPath('message', 'A call takes up to 3 people.');
-    FilamentCallsPlugin::get()->maxParticipants(null);
+    FilamentHollerPlugin::get()->maxParticipants(null);
 
     // Signals can be addressed to one person and say who sent them.
     $this->actingAs($this->ion)->postJson(callsRoute('signal', ['call' => $call]), ['type' => 'offer', 'payload' => ['sdp' => 'v=0'], 'to' => (string) $this->ana->getKey()])->assertCreated();

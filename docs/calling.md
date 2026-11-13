@@ -5,7 +5,7 @@
 Put a `CallAction` where the record is a user (an `Authenticatable`):
 
 ```php
-use Packstub\FilamentCalls\Actions\CallAction;
+use Packstub\FilamentHoller\Actions\CallAction;
 
 // A table of users
 ->recordActions([
@@ -30,14 +30,14 @@ The button only shows for someone the signed-in user may call (never for themsel
 By default any two users who can open the panel can call each other, and on a panel with tenancy only two who share a tenant (the call routes carry no tenant, so the plugin compares the two people's tenants). Narrow it:
 
 ```php
-FilamentCallsPlugin::make()
+FilamentHollerPlugin::make()
     ->canCall(fn (User $caller, User $callee): bool => $caller->team_id === $callee->team_id)
 ```
 
 A closure replaces the tenant rule; take `bool $sharesTenant` to keep it and add your own:
 
 ```php
-FilamentCallsPlugin::make()
+FilamentHollerPlugin::make()
     ->canCall(fn (User $callee, bool $sharesTenant): bool => $sharesTenant && $callee->is_active)
 ```
 
@@ -47,7 +47,7 @@ Whatever the closure says:
 - someone who cannot open the panel is never callable: the user model's `canAccessPanel()` decides, and a model without `FilamentUser` counts only in the `local` environment, as in Filament itself;
 - on a panel that requires a verified email, someone who has not verified theirs is never callable.
 
-The check runs on the server when a call starts and when someone is added to one; the Call button follows the same rule. `FilamentCallsPlugin::sharesTenant($caller, $callee, $panel)` is the tenant check on its own, for code of your own. The caller's tenants are read once per request; `FilamentCallsPlugin::flushTenantCache()` forgets them after you change someone's tenants mid-request. In a table of Call buttons on a panel with tenancy, eager-load the users' tenants:
+The check runs on the server when a call starts and when someone is added to one; the Call button follows the same rule. `FilamentHollerPlugin::sharesTenant($caller, $callee, $panel)` is the tenant check on its own, for code of your own. The caller's tenants are read once per request; `FilamentHollerPlugin::flushTenantCache()` forgets them after you change someone's tenants mid-request. In a table of Call buttons on a panel with tenancy, eager-load the users' tenants:
 
 ```php
 ->modifyQueryUsing(fn ($query) => $query->with('teams'))
@@ -60,7 +60,7 @@ While on a call, clicking Call on another person adds them to it: they get the u
 Four people is the default limit. The browsers connect to each other directly, so each uploads its media once per other participant, and four is where that stops being comfortable on ordinary connections:
 
 ```php
-FilamentCallsPlugin::make()->maxParticipants(3)   // or CALLS_MAX_PARTICIPANTS in .env
+FilamentHollerPlugin::make()->maxParticipants(3)   // or HOLLER_MAX_PARTICIPANTS in .env
 ```
 
 To go further, give the engine a `topology` for a media server (an SFU) through the [engine options](customizing.md#engine-options).
@@ -68,12 +68,12 @@ To go further, give the engine a `topology` for a media server (an SFU) through 
 ## Voice calls
 
 ```php
-FilamentCallsPlugin::make()->video(false)
+FilamentHollerPlugin::make()->video(false)
 ```
 
-Calls then start with the microphone only; either side can still share their screen. Someone without a camera joins a video call with their voice, and the others see their avatar. `CALLS_VIDEO=false` makes every call a voice call.
+Calls then start with the microphone only; either side can still share their screen. Someone without a camera joins a video call with their voice, and the others see their avatar. `HOLLER_VIDEO=false` makes every call a voice call.
 
 ## Page events
 
-- `filament-calls-call` on `window` with `{ user }` rings that user, or adds them to the call you are on. It is what `CallAction` dispatches, so any button or script can do the same: `$dispatch('filament-calls-call', { user: 5 })` in Alpine.
-- `filament-calls-sharing` bubbles from the widget with `{ peer, sharing, spotlight }` when someone's screen starts or stops taking the stage.
+- `filament-holler-call` on `window` with `{ user }` rings that user, or adds them to the call you are on. It is what `CallAction` dispatches, so any button or script can do the same: `$dispatch('filament-holler-call', { user: 5 })` in Alpine.
+- `filament-holler-sharing` bubbles from the widget with `{ peer, sharing, spotlight }` when someone's screen starts or stops taking the stage.

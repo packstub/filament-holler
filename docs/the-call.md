@@ -16,20 +16,20 @@ A browser closes a WebRTC connection on every full page load, so the plugin keep
 
 **Pop-out window** (the default for panels without SPA mode). Call and Accept open the call in a small browser window of its own. The main tab shows a chip with the other person's name and the timer, a button to bring the window back and one to hang up, and is free to navigate, reload or close. Reloading the pop-out reconnects the call; closing it hands the call back to the main tab, which continues it in the page. If the browser blocks the pop-out, the call opens in the page instead, with a short notice.
 
-The pop-out's address names the call (`…/filament-calls/window?call=12`) or the person to ring (`?callee=5`), but an address alone never rings anyone or answers a call: the page that opens the window leaves a one-time token in `localStorage` (valid for 60 seconds, read once) and the pop-out acts only when it finds it. Opened from a link or a bookmark, `?call=` shows the call with Accept when it is ringing you (or continues a call you are already on), and `?callee=` does nothing.
+The pop-out's address names the call (`…/filament-holler/window?call=12`) or the person to ring (`?callee=5`), but an address alone never rings anyone or answers a call: the page that opens the window leaves a one-time token in `localStorage` (valid for 60 seconds, read once) and the pop-out acts only when it finds it. Opened from a link or a bookmark, `?call=` shows the call with Accept when it is ringing you (or continues a call you are already on), and `?callee=` does nothing.
 
 **In the page** (the default in SPA mode, `->spa()`). The widget is kept across `wire:navigate` page changes, so the call simply continues. A full page load (F5, a link outside the panel) reconnects it: the other side sees "Reconnecting…" for a few seconds, then the video is back.
 
 Pick explicitly when the default is not what you want:
 
 ```php
-FilamentCallsPlugin::make()
+FilamentHollerPlugin::make()
     ->popOut()        // always a pop-out, also in SPA mode
     ->popOut(false)   // always in the page; full page loads reconnect
     ->popOut(fn (): bool => /* any rule */ true)
 ```
 
-`CALLS_POP_OUT=false` turns the pop-out off for every panel without SPA mode that does not say otherwise. When one side stays away longer than `CALLS_RECONNECT_TIMEOUT` (15 seconds by default) the call ends as lost.
+`HOLLER_POP_OUT=false` turns the pop-out off for every panel without SPA mode that does not say otherwise. When one side stays away longer than `HOLLER_RECONNECT_TIMEOUT` (15 seconds by default) the call ends as lost.
 
 ## Keyboard and screen readers
 

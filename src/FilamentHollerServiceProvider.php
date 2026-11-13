@@ -1,22 +1,22 @@
 <?php
 
-namespace Packstub\FilamentCalls;
+namespace Packstub\FilamentHoller;
 
 use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Css;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
-use Packstub\Calls\Contracts\CallContext;
+use Packstub\Holler\Contracts\CallContext;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 /**
- * The panel side of packstub/calls: the context that answers from the current
+ * The panel side of packstub/holler: the context that answers from the current
  * panel's plugin, the widget's views, labels and assets.
  */
-class FilamentCallsServiceProvider extends PackageServiceProvider
+class FilamentHollerServiceProvider extends PackageServiceProvider
 {
-    public static string $name = 'filament-calls';
+    public static string $name = 'filament-holler';
 
     public function configurePackage(Package $package): void
     {
@@ -36,12 +36,12 @@ class FilamentCallsServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
-        // The Alpine wrapper imports ../calls-core.js (@packstub/calls) relative to its own URL
+        // The Alpine wrapper imports ../holler-core.js (@packstub/holler) relative to its own URL
         // (components land one folder deeper), so the core is published but never put in <head>.
         FilamentAsset::register([
-            AlpineComponent::make('calls', __DIR__.'/../resources/dist/calls.js'),
-            Js::make('calls-core', __DIR__.'/../resources/dist/calls-core.js')->loadedOnRequest(),
-            Css::make('calls', __DIR__.'/../resources/dist/calls.css')->loadedOnRequest(),
-        ], 'packstub/filament-calls');
+            AlpineComponent::make('holler', __DIR__.'/../resources/dist/holler.js'),
+            Js::make('holler-core', __DIR__.'/../resources/dist/holler-core.js')->loadedOnRequest(),
+            Css::make('holler', __DIR__.'/../resources/dist/holler.css')->loadedOnRequest(),
+        ], 'packstub/filament-holler');
     }
 }

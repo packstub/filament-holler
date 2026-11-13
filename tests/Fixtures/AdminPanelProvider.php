@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\FilamentCalls\Tests\Fixtures;
+namespace Packstub\FilamentHoller\Tests\Fixtures;
 
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -15,7 +15,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Packstub\FilamentCalls\FilamentCallsPlugin;
+use Packstub\FilamentHoller\FilamentHollerPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -28,7 +28,7 @@ class AdminPanelProvider extends PanelProvider
             ->login()
             ->pages([Dashboard::class])
             ->resources([UserResource::class])
-            ->plugins([FilamentCallsPlugin::make()])
+            ->plugins([FilamentHollerPlugin::make()])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

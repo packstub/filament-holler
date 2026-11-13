@@ -1,11 +1,11 @@
 <?php
 
-namespace Packstub\FilamentCalls\Http;
+namespace Packstub\FilamentHoller\Http;
 
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
-use Packstub\Calls\Facades\Calls;
-use Packstub\Calls\Models\Call;
+use Packstub\Holler\Facades\Holler;
+use Packstub\Holler\Models\Call;
 
 /**
  * The pop-out: a page with nothing on it but the call widget, opened in its own
@@ -21,11 +21,11 @@ class WindowController
         if ($callId) {
             $call = Call::query()->findOrFail($callId);
 
-            $me = (string) Calls::currentUserId();
+            $me = (string) Holler::currentUserId();
 
-            abort_unless($call->involves($me) && Calls::inScope($call, $me), 403);
+            abort_unless($call->involves($me) && Holler::inScope($call, $me), 403);
         }
 
-        return view('filament-calls::window');
+        return view('filament-holler::window');
     }
 }

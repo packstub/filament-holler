@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\FilamentCalls\Actions;
+namespace Packstub\FilamentHoller\Actions;
 
 use Closure;
 use Filament\Actions\Action;
@@ -8,7 +8,7 @@ use Filament\Facades\Filament;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Js;
-use Packstub\FilamentCalls\FilamentCallsPlugin;
+use Packstub\FilamentHoller\FilamentHollerPlugin;
 
 /**
  * A button that rings a user. Client-side only: it hands the user id to the
@@ -28,11 +28,11 @@ class CallAction extends Action
     {
         parent::setUp();
 
-        $this->label(fn (): string => __('filament-calls::calls.call'));
+        $this->label(fn (): string => __('filament-holler::calls.call'));
         $this->icon(Heroicon::OutlinedPhone);
         $this->color('primary');
 
-        $this->alpineClickHandler(fn (CallAction $action): string => '$dispatch(\'filament-calls-call\', { user: '.Js::from((string) $action->getUser()?->getAuthIdentifier()).' })');
+        $this->alpineClickHandler(fn (CallAction $action): string => '$dispatch(\'filament-holler-call\', { user: '.Js::from((string) $action->getUser()?->getAuthIdentifier()).' })');
     }
 
     /**
@@ -51,12 +51,12 @@ class CallAction extends Action
         $me = Filament::auth()->user();
         $panel = Filament::getCurrentOrDefaultPanel();
 
-        if (! $user || ! $me || ! $panel?->hasPlugin('filament-calls')) {
+        if (! $user || ! $me || ! $panel?->hasPlugin('filament-holler')) {
             return false;
         }
 
-        /** @var FilamentCallsPlugin $plugin */
-        $plugin = $panel->getPlugin('filament-calls');
+        /** @var FilamentHollerPlugin $plugin */
+        $plugin = $panel->getPlugin('filament-holler');
 
         return $plugin->isCallAllowed($me, $user);
     }

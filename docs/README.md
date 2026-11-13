@@ -1,13 +1,13 @@
-# Filament Calls
+# Filament Holler
 
 Audio, video and screen-share calls between the users of a Filament panel, one on one or in groups of up to four, peer to peer over WebRTC. The media goes straight from one browser to the other; your Laravel app only handles who calls whom and passes the few signaling messages the browsers need to find each other, over plain HTTP polling, so there is no websocket server to run. Free and open source (MIT).
 
-- Repository: [github.com/packstub/filament-calls](https://github.com/packstub/filament-calls)
-- Packagist: [packstub/filament-calls](https://packagist.org/packages/packstub/filament-calls)
-- Support: [GitHub issues](https://github.com/packstub/filament-calls/issues)
-- Built on: [Calls for Laravel](https://packstub.dev/docs/calls) (the signaling backend, installed with this package) and [`@packstub/calls`](https://github.com/packstub/calls-js) (the browser engine, bundled)
+- Repository: [github.com/packstub/filament-holler](https://github.com/packstub/filament-holler)
+- Packagist: [packstub/filament-holler](https://packagist.org/packages/packstub/filament-holler)
+- Support: [GitHub issues](https://github.com/packstub/filament-holler/issues)
+- Built on: [Holler for Laravel](https://packstub.dev/docs/holler) (the signaling backend, installed with this package) and [`@packstub/holler`](https://github.com/packstub/holler-js) (the browser engine, bundled)
 
-![Ion calls Ana from her row on the Team page, she answers, and the call window shows her video with his in the corner](https://raw.githubusercontent.com/packstub/art/main/filament-calls/docs/calls.gif)
+![Ion calls Ana from her row on the Team page, she answers, and the call window shows her video with his in the corner](https://raw.githubusercontent.com/packstub/art/main/filament-holler/docs/calls.gif)
 
 ## Features
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace Packstub\FilamentCalls\Tests\Fixtures;
+namespace Packstub\FilamentHoller\Tests\Fixtures;
 
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;

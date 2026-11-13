@@ -1,20 +1,20 @@
-# Filament Calls
+# Filament Holler
 
 <div class="filament-hidden">
 
-![Filament Calls: a group video call in a floating window over a Filament Team page with a Call action on every row](https://raw.githubusercontent.com/packstub/art/main/filament-calls/banner.jpg)
+![Filament Holler: a group video call in a floating window over a Filament Team page with a Call action on every row](https://raw.githubusercontent.com/packstub/art/main/filament-holler/banner.jpg)
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/packstub/filament-calls.svg?style=flat-square)](https://packagist.org/packages/packstub/filament-calls)
-[![Tests](https://img.shields.io/github/actions/workflow/status/packstub/filament-calls/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/packstub/filament-calls/actions/workflows/tests.yml)
-[![Total Downloads](https://img.shields.io/packagist/dt/packstub/filament-calls.svg?style=flat-square)](https://packagist.org/packages/packstub/filament-calls)
-[![License](https://img.shields.io/packagist/l/packstub/filament-calls.svg?style=flat-square)](https://github.com/packstub/filament-calls/blob/main/LICENSE.md)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/packstub/filament-holler.svg?style=flat-square)](https://packagist.org/packages/packstub/filament-holler)
+[![Tests](https://img.shields.io/github/actions/workflow/status/packstub/filament-holler/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/packstub/filament-holler/actions/workflows/tests.yml)
+[![Total Downloads](https://img.shields.io/packagist/dt/packstub/filament-holler.svg?style=flat-square)](https://packagist.org/packages/packstub/filament-holler)
+[![License](https://img.shields.io/packagist/l/packstub/filament-holler.svg?style=flat-square)](https://github.com/packstub/filament-holler/blob/main/LICENSE.md)
 [![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/icaliman)
 
 </div>
 
 Audio, video and screen-share calls between the users of a Filament panel, one on one or in groups of up to four, peer to peer over WebRTC. The media goes straight from one browser to the other; your Laravel app only handles who calls whom, over plain HTTP polling, so there is no websocket server to run.
 
-![Ion calls Ana from her row on the Team page, she answers, and the call window shows her video with his in the corner](https://raw.githubusercontent.com/packstub/art/main/filament-calls/docs/calls.gif)
+![Ion calls Ana from her row on the Team page, she answers, and the call window shows her video with his in the corner](https://raw.githubusercontent.com/packstub/art/main/filament-holler/docs/calls.gif)
 
 ## Features
 
@@ -38,7 +38,7 @@ Calls run in every current browser (WebRTC). The panel must be served over HTTPS
 ## Installation
 
 ```bash
-composer require packstub/filament-calls
+composer require packstub/filament-holler
 php artisan migrate
 php artisan filament:assets
 ```
@@ -46,32 +46,32 @@ php artisan filament:assets
 Register the plugin in your panel:
 
 ```php
-use Packstub\FilamentCalls\FilamentCallsPlugin;
+use Packstub\FilamentHoller\FilamentHollerPlugin;
 
 public function panel(Panel $panel): Panel
 {
     return $panel
         // ...
         ->plugins([
-            FilamentCallsPlugin::make(),
+            FilamentHollerPlugin::make(),
         ]);
 }
 ```
 
-That adds the call widget to every page of the panel and the signaling routes under `/{panel}/filament-calls/calls/`, behind the panel's auth. The tables, model, events and config file come from [Calls for Laravel](https://github.com/packstub/calls), which Composer installs alongside. Then schedule its cleanup:
+That adds the call widget to every page of the panel and the signaling routes under `/{panel}/filament-holler/calls/`, behind the panel's auth. The tables, model, events and config file come from [Holler for Laravel](https://github.com/packstub/holler), which Composer installs alongside. Then schedule its cleanup:
 
 ```php
-Schedule::command('calls:prune')->daily();
+Schedule::command('holler:prune')->daily();
 ```
 
-Read more: [Installation](https://packstub.dev/docs/filament-calls/installation).
+Read more: [Installation](https://packstub.dev/docs/filament-holler/installation).
 
 ## The Call action
 
 Put a `CallAction` where the record is a user:
 
 ```php
-use Packstub\FilamentCalls\Actions\CallAction;
+use Packstub\FilamentHoller\Actions\CallAction;
 
 // A table of users
 ->recordActions([
@@ -84,82 +84,82 @@ CallAction::make()->user(fn () => $this->record->assignee)
 
 The button only shows for someone the signed-in user may call, never for themselves. Clicking it rings the other person: their open panel tabs show a toast with the caller's name and avatar, they accept, and the two browsers connect.
 
-Read more: [Calling](https://packstub.dev/docs/filament-calls/calling).
+Read more: [Calling](https://packstub.dev/docs/filament-holler/calling).
 
 ## The call widget
 
 The plugin draws one widget on every page for signed-in users: the incoming-call toast with Accept and Decline, then a floating window with a tile per other person, your own picture in a corner, and buttons to mute, turn the camera off, share your screen and hang up. A shared screen takes the stage in the other windows. The widget is drawn with Filament's own buttons and avatars and follows the panel's theme, light or dark; its messages are Filament notifications.
 
-Read more: [The call](https://packstub.dev/docs/filament-calls/the-call).
+Read more: [The call](https://packstub.dev/docs/filament-holler/the-call).
 
 ## Who may call whom
 
 By default any two users who can open the panel can call each other, and on a panel with tenancy only two who share a tenant. Narrow it:
 
 ```php
-FilamentCallsPlugin::make()
+FilamentHollerPlugin::make()
     ->canCall(fn (User $caller, User $callee): bool => $caller->team_id === $callee->team_id)
 ```
 
 Add a `bool $sharesTenant` parameter to the closure to keep the tenant rule and add your own. The check runs on the server when a call starts and when someone is added to one, for every pair of people on the call. Someone who cannot open the panel, or has not verified the email the panel requires, is never callable.
 
-Read more: [Who may call whom](https://packstub.dev/docs/filament-calls/calling#who-may-call-whom).
+Read more: [Who may call whom](https://packstub.dev/docs/filament-holler/calling#who-may-call-whom).
 
 ## Group calls
 
 While on a call, clicking Call on another person adds them to it. Once they accept, everyone connects to them, and the window shows a tile per other participant. The browsers connect to each other directly, so four people is the default limit:
 
 ```php
-FilamentCallsPlugin::make()->maxParticipants(3)   // or CALLS_MAX_PARTICIPANTS in .env
+FilamentHollerPlugin::make()->maxParticipants(3)   // or HOLLER_MAX_PARTICIPANTS in .env
 ```
 
 Someone who hangs up leaves the call for the others. `->video(false)` makes the panel's calls voice calls; either side can still share their screen.
 
-Read more: [Group calls](https://packstub.dev/docs/filament-calls/calling#group-calls).
+Read more: [Group calls](https://packstub.dev/docs/filament-holler/calling#group-calls).
 
 ## Where the call lives
 
 A browser closes a WebRTC connection on every full page load, so the plugin keeps the call where a page load does not end it. On panels without SPA mode, Call and Accept open the call in a small window of its own, and the main tab shows a chip with the timer while it navigates, reloads or closes. In SPA mode the call stays in the page across `wire:navigate`, and a full page load reconnects it within a few seconds.
 
 ```php
-FilamentCallsPlugin::make()->popOut()        // always a pop-out, also in SPA mode
-FilamentCallsPlugin::make()->popOut(false)   // always in the page
+FilamentHollerPlugin::make()->popOut()        // always a pop-out, also in SPA mode
+FilamentHollerPlugin::make()->popOut(false)   // always in the page
 ```
 
-Read more: [Where the call lives](https://packstub.dev/docs/filament-calls/the-call#where-the-call-lives).
+Read more: [Where the call lives](https://packstub.dev/docs/filament-holler/the-call#where-the-call-lives).
 
 ## STUN and TURN
 
 Most calls connect directly with the default STUN server. Calls behind strict NATs or corporate firewalls need a TURN relay; point the plugin at yours:
 
 ```dotenv
-CALLS_TURN_URL=turn:turn.example.com:3478
-CALLS_TURN_USERNAME=...
-CALLS_TURN_CREDENTIAL=...
+HOLLER_TURN_URL=turn:turn.example.com:3478
+HOLLER_TURN_USERNAME=...
+HOLLER_TURN_CREDENTIAL=...
 ```
 
-Or per panel with `->iceServers(fn () => [...])`, for short-lived credentials: the browsers ask for them each time a call starts. `CALLS_ICE_TRANSPORT_POLICY=relay` sends every call through the relay, so nobody sees anybody else's network address.
+Or per panel with `->iceServers(fn () => [...])`, for short-lived credentials: the browsers ask for them each time a call starts. `HOLLER_ICE_TRANSPORT_POLICY=relay` sends every call through the relay, so nobody sees anybody else's network address.
 
-Read more: [ICE servers](https://packstub.dev/docs/filament-calls/configuration#ice-servers-stun--turn).
+Read more: [ICE servers](https://packstub.dev/docs/filament-holler/configuration#ice-servers-stun--turn).
 
 ## Customizing
 
-Every icon in the widget has an alias for `FilamentIcon::register()`, the labels are translations (`php artisan vendor:publish --tag=filament-calls-translations`), and a `filament-calls-configure` event hands a script the engine's options before the widget starts, for example a media server in place of the mesh.
+Every icon in the widget has an alias for `FilamentIcon::register()`, the labels are translations (`php artisan vendor:publish --tag=filament-holler-translations`), and a `filament-holler-configure` event hands a script the engine's options before the widget starts, for example a media server in place of the mesh.
 
-Read more: [Customizing](https://packstub.dev/docs/filament-calls/customizing).
+Read more: [Customizing](https://packstub.dev/docs/filament-holler/customizing).
 
 ## Events and the call log
 
-`CallStarted`, `CallAnswered`, `ParticipantJoined`, `ParticipantLeft` and `CallEnded` fire for every step, and `Packstub\Calls\Models\Call` is a plain Eloquent model with its participants, `end_reason` and `duration()`, ready for a resource of your own.
+`CallStarted`, `CallAnswered`, `ParticipantJoined`, `ParticipantLeft` and `CallEnded` fire for every step, and `Packstub\Holler\Models\Call` is a plain Eloquent model with its participants, `end_reason` and `duration()`, ready for a resource of your own.
 
-Read more: [Events and the call log](https://packstub.dev/docs/filament-calls/configuration#events-and-the-call-log).
+Read more: [Events and the call log](https://packstub.dev/docs/filament-holler/configuration#events-and-the-call-log).
 
 ## Configuration
 
 The plugin's options are set per panel:
 
 ```php
-FilamentCallsPlugin::make()
+FilamentHollerPlugin::make()
     ->canCall(fn (User $caller, User $callee): bool => true)
     ->maxParticipants(4)
     ->video(true)
@@ -167,21 +167,21 @@ FilamentCallsPlugin::make()
     ->iceServers(fn () => [...]);
 ```
 
-Everything else is in `config/packstub-calls.php`, from Calls for Laravel, and reads env variables: `CALLS_POLL_IDLE`, `CALLS_POLL_ACTIVE`, `CALLS_RING_TIMEOUT`, `CALLS_RECONNECT_TIMEOUT`, `CALLS_PRUNE_AFTER_DAYS`, `CALLS_DB_CONNECTION` and the STUN and TURN variables above.
+Everything else is in `config/holler.php`, from Holler for Laravel, and reads env variables: `HOLLER_POLL_IDLE`, `HOLLER_POLL_ACTIVE`, `HOLLER_RING_TIMEOUT`, `HOLLER_RECONNECT_TIMEOUT`, `HOLLER_PRUNE_AFTER_DAYS`, `HOLLER_DB_CONNECTION` and the STUN and TURN variables above.
 
-Read more: [Configuration](https://packstub.dev/docs/filament-calls/configuration).
+Read more: [Configuration](https://packstub.dev/docs/filament-holler/configuration).
 
 ## Documentation
 
-Full docs at [packstub.dev/docs/filament-calls](https://packstub.dev/docs/filament-calls):
+Full docs at [packstub.dev/docs/filament-holler](https://packstub.dev/docs/filament-holler):
 
-- [Installation](https://packstub.dev/docs/filament-calls/installation)
-- [Calling](https://packstub.dev/docs/filament-calls/calling): the Call action, who may call whom, tenancy, group calls, voice calls, page events
-- [The call](https://packstub.dev/docs/filament-calls/the-call): the widget, the pop-out window and SPA mode, keyboard and screen readers
-- [Customizing](https://packstub.dev/docs/filament-calls/customizing): icons, texts and translations, engine options
-- [Configuration](https://packstub.dev/docs/filament-calls/configuration): ICE servers, polling and timeouts, events and the call log
+- [Installation](https://packstub.dev/docs/filament-holler/installation)
+- [Calling](https://packstub.dev/docs/filament-holler/calling): the Call action, who may call whom, tenancy, group calls, voice calls, page events
+- [The call](https://packstub.dev/docs/filament-holler/the-call): the widget, the pop-out window and SPA mode, keyboard and screen readers
+- [Customizing](https://packstub.dev/docs/filament-holler/customizing): icons, texts and translations, engine options
+- [Configuration](https://packstub.dev/docs/filament-holler/configuration): ICE servers, polling and timeouts, events and the call log
 
-The plugin is the panel side of [Calls for Laravel](https://packstub.dev/docs/calls), the signaling backend, and [`@packstub/calls`](https://github.com/packstub/calls-js), the browser engine. Both work without Filament too.
+The plugin is the panel side of [Holler for Laravel](https://packstub.dev/docs/holler), the signaling backend, and [`@packstub/holler`](https://github.com/packstub/holler-js), the browser engine. Both work without Filament too.
 
 ## Testing
 
@@ -195,17 +195,17 @@ Open the workbench twice, as two different people, on two hostnames (`localhost`
 
 ## Changelog
 
-See [CHANGELOG.md](https://github.com/packstub/filament-calls/blob/main/CHANGELOG.md).
+See [CHANGELOG.md](https://github.com/packstub/filament-holler/blob/main/CHANGELOG.md).
 
 ## Security
 
-If you discover a security issue, email [security@packstub.dev](mailto:security@packstub.dev) instead of using the issue tracker. See [SECURITY.md](https://github.com/packstub/filament-calls/blob/main/.github/SECURITY.md).
+If you discover a security issue, email [security@packstub.dev](mailto:security@packstub.dev) instead of using the issue tracker. See [SECURITY.md](https://github.com/packstub/filament-holler/blob/main/.github/SECURITY.md).
 
 ## Credits
 
 - [Ion Caliman](https://github.com/icaliman)
-- [All contributors](https://github.com/packstub/filament-calls/contributors)
+- [All contributors](https://github.com/packstub/filament-holler/contributors)
 
 ## License
 
-MIT. See [LICENSE.md](https://github.com/packstub/filament-calls/blob/main/LICENSE.md).
+MIT. See [LICENSE.md](https://github.com/packstub/filament-holler/blob/main/LICENSE.md).
