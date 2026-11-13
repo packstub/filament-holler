@@ -23,6 +23,10 @@
             'signal' => $panel->route('filament-holler.signal', ['call' => '__ID__']),
             'leave' => $panel->route('filament-holler.leave', ['call' => '__ID__']),
             'invite' => $panel->route('filament-holler.invite', ['call' => '__ID__']),
+            'hold' => $panel->route('filament-holler.hold', ['call' => '__ID__']),
+            'resume' => $panel->route('filament-holler.resume', ['call' => '__ID__']),
+            // No route, no "Add someone" button.
+            'people' => config('holler.people_search', true) ? $panel->route('filament-holler.people') : null,
             'ice' => $panel->route('filament-holler.ice'),
         ],
         // Only calls: another package's calls on the same tables (Session Replay's assist) never ring here.
@@ -97,6 +101,56 @@
         </div>
     </div>
 
+    {{-- Call pressed during a call: what to do with the call I am on --}}
+    <div
+        x-show="prompt"
+        x-cloak
+        x-transition
+        x-on:keydown.escape.window="prompt && promptCancel()"
+        class="fi-holler-card fi-holler-prompt"
+        role="dialog"
+        aria-labelledby="fi-holler-prompt-title"
+        data-holler-prompt
+    >
+        <div class="fi-holler-prompt-title">
+            <div class="fi-holler-name" id="fi-holler-prompt-title">{{ __('filament-holler::calls.on_call_title') }}</div>
+            <div class="fi-holler-muted" x-show="prompt?.name" x-text="prompt?.name"></div>
+        </div>
+        <x-filament::button color="gray" :icon="Heroicon::OutlinedUserPlus" :icon-alias="Icon::ADD_PERSON" x-show="canInvite" x-on:click="promptAdd" data-holler-prompt-option="add" class="fi-holler-option">
+            {{ __('filament-holler::calls.add_to_call') }}
+        </x-filament::button>
+        <x-filament::button color="gray" :icon="Heroicon::OutlinedPause" :icon-alias="Icon::HOLD" x-show="canHold" x-on:click="promptHold" data-holler-prompt-option="hold" class="fi-holler-option">
+            {{ __('filament-holler::calls.hold_and_call') }}
+        </x-filament::button>
+        <x-filament::button color="gray" :icon="Heroicon::OutlinedPhoneXMark" :icon-alias="Icon::HANG_UP" x-on:click="promptEnd" data-holler-prompt-option="end" class="fi-holler-option">
+            {{ __('filament-holler::calls.end_and_call') }}
+        </x-filament::button>
+        <x-filament::link tag="button" color="gray" size="sm" x-on:click="promptCancel" data-holler-prompt-option="cancel" class="fi-holler-option-cancel">
+            {{ __('filament-holler::calls.cancel') }}
+        </x-filament::link>
+    </div>
+
+    {{-- The call I put on hold: who it is with, resume, end --}}
+    <div x-show="heldCall" x-cloak x-transition class="fi-holler-card fi-holler-incoming fi-holler-held" role="region" aria-labelledby="fi-holler-held-name" data-holler-held>
+        <div class="fi-holler-person">
+            <span class="fi-holler-avatar fi-holler-avatar-initials fi-holler-avatar-held">
+                <x-filament::icon :icon="Heroicon::OutlinedPause" :alias="Icon::ON_HOLD" />
+            </span>
+            <div class="fi-holler-person-text">
+                <div class="fi-holler-name" id="fi-holler-held-name" x-text="heldNames"></div>
+                <div class="fi-holler-muted">{{ __('filament-holler::calls.on_hold') }}</div>
+            </div>
+        </div>
+        <div class="fi-holler-actions">
+            <x-filament::button color="success" :icon="Heroicon::OutlinedPlay" :icon-alias="Icon::RESUME" label-sr-only :tooltip="__('filament-holler::calls.resume')" x-on:click="resumeHeld" data-holler-resume class="fi-holler-round">
+                {{ __('filament-holler::calls.resume') }}
+            </x-filament::button>
+            <x-filament::button color="danger" :icon="Heroicon::OutlinedPhoneXMark" :icon-alias="Icon::HANG_UP" label-sr-only :tooltip="__('filament-holler::calls.hang_up')" x-on:click="endHeld" data-holler-end-held class="fi-holler-round">
+                {{ __('filament-holler::calls.hang_up') }}
+            </x-filament::button>
+        </div>
+    </div>
+
     {{-- The call lives in the pop-out window: a chip with the essentials --}}
     <div x-show="state === 'elsewhere'" x-transition class="fi-holler-card fi-holler-incoming fi-holler-chip" role="region" aria-labelledby="fi-holler-chip-name">
         <div class="fi-holler-person">
@@ -150,6 +204,7 @@
                             <span x-text="peer.name"></span>
                             <span class="fi-holler-tile-status" x-show="peer.status === 'ringing'" x-cloak>{{ __('filament-holler::calls.calling') }}</span>
                             <span class="fi-holler-tile-status" x-show="peer.status === 'joined' && ! peer.connected" x-cloak>{{ __('filament-holler::calls.connecting') }}</span>
+                            <span class="fi-holler-tile-status" x-show="peer.status === 'on_hold'" x-cloak data-peer="on-hold">{{ __('filament-holler::calls.on_hold') }}</span>
                         </div>
 
                         {{-- What this person told us: muted, camera off, sharing --}}
@@ -212,6 +267,27 @@
             </x-filament::link>
         </div>
 
+        {{-- Adding someone: a search box and the people found; a click rings them into the call. --}}
+        <div class="fi-holler-people" id="fi-holler-people" x-show="peopleOpen" x-cloak x-on:keydown.escape.stop="closePeople()">
+            <x-filament::input.wrapper :prefix-icon="Heroicon::OutlinedMagnifyingGlass" :prefix-icon-alias="Icon::SEARCH">
+                <x-filament::input type="search" autocomplete="off" x-ref="peopleSearch" x-on:input.debounce.200ms="loadPeople($event.target.value)" :placeholder="__('filament-holler::calls.search_people')" :aria-label="__('filament-holler::calls.search_people')" data-holler-people-search />
+            </x-filament::input.wrapper>
+            <div class="fi-holler-people-list">
+                <template x-for="person in people" :key="person.id">
+                    <button type="button" class="fi-holler-person fi-holler-person-option" x-on:click="pick(person)" :data-holler-add="person.id">
+                        <template x-if="person.avatar">
+                            <x-filament::avatar x-bind:src="person.avatar" size="fi-holler-avatar fi-holler-avatar-sm" />
+                        </template>
+                        <template x-if="! person.avatar">
+                            <span class="fi-holler-avatar fi-holler-avatar-sm fi-holler-avatar-initials" x-text="initials(person.name)"></span>
+                        </template>
+                        <span class="fi-holler-name" x-text="person.name"></span>
+                    </button>
+                </template>
+            </div>
+            <div class="fi-holler-muted" x-show="peopleLoaded && people.length === 0" x-cloak data-holler-no-people>{{ __('filament-holler::calls.no_people') }}</div>
+        </div>
+
         {{-- Toggles are Filament's own pressed buttons (aria-pressed), two per toggle, one per
              state, so each has its own icon and label; x-show switches between them. Off is grey,
              on stands out: a muted mic or a stopped camera turns red, a shared screen primary. --}}
@@ -235,6 +311,14 @@
             </x-filament::button>
             <x-filament::button color="primary" :icon="Heroicon::OutlinedComputerDesktop" :icon-alias="Icon::SHARE_SCREEN" label-sr-only :tooltip="__('filament-holler::calls.stop_sharing')" data-holler-toggle="share" aria-pressed="true" x-show="state === 'active' && sharing" x-cloak x-on:click="toggleShare" class="fi-holler-round">
                 {{ __('filament-holler::calls.stop_sharing') }}
+            </x-filament::button>
+
+            <x-filament::button color="gray" :icon="Heroicon::OutlinedUserPlus" :icon-alias="Icon::ADD_PERSON" label-sr-only :tooltip="__('filament-holler::calls.add_person')" data-holler-add-person aria-controls="fi-holler-people" x-bind:aria-expanded="peopleOpen.toString()" x-show="canAdd" x-cloak x-on:click="togglePeople" class="fi-holler-round">
+                {{ __('filament-holler::calls.add_person') }}
+            </x-filament::button>
+
+            <x-filament::button color="gray" :icon="Heroicon::OutlinedPause" :icon-alias="Icon::HOLD" label-sr-only :tooltip="__('filament-holler::calls.hold')" data-holler-hold x-show="canHold" x-cloak x-on:click="hold" class="fi-holler-round">
+                {{ __('filament-holler::calls.hold') }}
             </x-filament::button>
 
             <x-filament::button color="gray" :icon="Heroicon::OutlinedCog6Tooth" :icon-alias="Icon::SETTINGS" label-sr-only :tooltip="__('filament-holler::calls.settings')" data-holler-settings aria-controls="fi-holler-settings" x-bind:aria-expanded="settingsOpen.toString()" x-show="config.devices || canNotify" x-on:click="toggleSettings" class="fi-holler-round">

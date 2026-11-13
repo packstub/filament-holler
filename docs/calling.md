@@ -55,7 +55,7 @@ The check runs on the server when a call starts and when someone is added to one
 
 ## Group calls
 
-While on a call, clicking Call on another person adds them to it: they get the usual toast, with how many people are already on, and once they accept everyone connects to them. The window shows a tile per other participant, two by two. Someone who hangs up leaves the call for the others; the call ends once one person is left.
+While on a call, there are two ways to add someone. The Add someone button in the call window opens a search box over the panel's users and rings whoever is picked. Clicking Call on another person asks what to do with the call you are on: add them to it, put it on hold and ring them, or end it and ring them. Someone added gets the usual toast, with how many people are already on, and once they accept everyone connects to them. The window shows a tile per other participant, two by two. Someone who hangs up leaves the call for the others; the call ends once one person is left.
 
 Four people is the default limit. The browsers connect to each other directly, so each uploads its media once per other participant, and four is where that stops being comfortable on ordinary connections:
 
@@ -64,6 +64,25 @@ FilamentHollerPlugin::make()->maxParticipants(3)   // or HOLLER_MAX_PARTICIPANTS
 ```
 
 To go further, give the engine a `topology` for a media server (an SFU) through the [engine options](customizing.md#engine-options).
+
+The search finds the panel's users by `name` (the `search_columns` key of `config/holler.php`; add `email` there to find people by address too, where colleagues may know each other's address) and only shows people `canCall()` allows, who are not on the call yet. It looks through up to 200 matches for the 8 it shows, so with tenancy colleagues are found even when other tenants' users match too. In a panel whose users are found another way, or to keep the search quick on a large users table, answer it yourself with a query narrowed to the tenant:
+
+```php
+FilamentHollerPlugin::make()->searchUsersUsing(
+    fn (User $caller, string $query, int $limit) => Filament::getTenant()->users()->where('name', 'like', "%{$query}%")->limit($limit)->get()
+)
+```
+
+`HOLLER_PEOPLE_SEARCH=false` leaves the button out.
+
+## Calls on hold
+
+Put on hold in the call window steps you out of a call without leaving it. Your camera and microphone close and your window is free for another call; the others stay on the first one, see that you put it on hold, and wait or carry on among themselves.
+
+- The call on hold shows in a small bar on every page of the panel, with who is on it, Resume and End.
+- Resume brings you back with a fresh connection. If you are on another call by then, that one goes on hold in its place, so Resume swaps the two.
+- One call on hold at a time. With one on hold already, Call on another person offers to add them or to end the current call.
+- Close every window and the call lets go of you after `HOLLER_HOLD_TIMEOUT` seconds (120).
 
 ## Voice calls
 
@@ -75,6 +94,6 @@ Calls then start with the microphone only; either side can still share their scr
 
 ## Page events
 
-- `filament-holler-call` on `window` with `{ user }` rings that user, or adds them to the call you are on. It is what `CallAction` dispatches, so any button or script can do the same: `$dispatch('filament-holler-call', { user: 5 })` in Alpine.
+- `filament-holler-call` on `window` with `{ user, name }` rings that user; during a call it opens the question above, with the name in it. It is what `CallAction` dispatches, so any button or script can do the same: `$dispatch('filament-holler-call', { user: 5 })` in Alpine.
 - `filament-holler-sharing` bubbles from the widget with `{ peer, sharing, spotlight }` when someone's screen starts or stops taking the stage.
 - `filament-holler-quality` bubbles from the widget with `{ peer, quality, rtt, loss, relayed }` when the connection to someone changes between `good`, `fair` and `poor`.

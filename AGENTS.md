@@ -14,8 +14,10 @@ private repo, untagged. Until `packstub/holler` is on Packagist, `composer.json`
 ```bash
 composer test               # Pest suite (feature: the endpoints as two users, access rules, the widget, the action)
 composer lint               # Pint
-composer build:js           # npm run build:js: copies node_modules/@packstub/holler/src/index.js to resources/dist/holler-core.js
-                            # (npm install first; the dev dependency points at github:packstub/holler-js; dist is committed)
+composer build:js           # npm run build:js (scripts/build.mjs, esbuild): minifies resources/js/holler.js and resources/css/holler.css into
+                            # resources/dist and copies the engine's minified build to resources/dist/holler-core.js (npm install first;
+                            # dist is committed). `npm run build:js:local` takes the engine from the checkout ../holler-js instead,
+                            # `npm run build:js:check` fails when dist is stale (CI runs it)
 composer serve              # workbench panel: Team page with Call buttons; ion@/ana@/mihai@example.com, password "password"
 composer test:e2e:firefox   # the same suite in Firefox (its own WebRTC stack; `npx playwright install firefox` once); run it before a
                             # release. Playwright's WebKit has no fake camera: Safari is checked by hand
@@ -37,8 +39,8 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
 
 ## Layout
 
-- `resources/dist/holler-core.js`: a copy of `@packstub/holler` (`plugins/holler-js`, where the engine's own tests live). Never edit it here.
-- `resources/dist/calls.js`: the Alpine component (`packstubHoller`), imports `../holler-core.js` with a top-level
+- `resources/dist/holler-core.js`: the minified build of `@packstub/holler` (`plugins/holler-js`, where the engine's own tests live). Never edit it here.
+- `resources/js/holler.js` (minified into `resources/dist/holler.js`, which is what Filament publishes; edit the source, then `composer build:js`): the Alpine component (`packstubHoller`), imports `../holler-core.js` with a top-level
   `await import()` relative to its published URL and with its own `?v=` query (Alpine components land in `components/`;
   the core is a `Js` asset `loadedOnRequest()` so it is published but not put in `<head>`). Builds `HttpSignaling`
   (`kind: 'call'`, the `ice` route) and `CallClient` (`iceServers` a function asking `signaling.configuration()` per call),
@@ -48,11 +50,14 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
   answers only with a matching token under 60 s old (same scheme as holler-js `widget.js`).
   Draws state, plays the ring, keeps `peers` (the engine's roster plus `hasVideo`) for one tile per other participant
   (`template x-for`, `data-peer-id`, `x-effect` attaches the stream, badges `data-peer="muted|sharing|camera-off"`,
-  the name with "Calling…" / "Connecting…"). `start(user)` while on a call (or `elsewhere`, the pop-out running it)
-  becomes `add(user)`: `client.invite()`, so the Call button doubles as "add to call". When `window.open` returns null (pop-ups blocked) the call stays
+  the name with "Calling…" / "Connecting…"). `start(user, name)` while on a call (or `elsewhere`, the pop-out running it)
+  opens the question (`prompt`, `data-holler-prompt`): `promptAdd()` (`client.invite()`), `promptHold()` (`client.hold()`, then the new call) or
+  `promptEnd()`. The call window has Add someone (`togglePeople()`, `loadPeople()` over `client.search()`, the `people` route; `pick()`) and
+  Put on hold; a call on hold is `heldCall` with its bar (`data-holler-held`, `resumeHeld()` opens the pop-out for it, `endHeld()`). The engine's
+  `canInvite()` / `canHold()` are not reactive: `syncCan()` copies them into `canInvite`, `canAdd`, `canHold` on every event that can change them. When `window.open` returns null (pop-ups blocked) the call stays
   on the page with a notice. `watchWindow()`: a main tab in `elsewhere` whose call nobody holds any more takes it
   back (`client.takeOver()`, which looks at the server first) at once when it knows its pop-out closed, else after
-  `TAKE_BACK_DELAY` (3 s, so a reloading pop-out keeps its side). `resources/dist/calls.css`: the widget.
+  `TAKE_BACK_DELAY` (3 s, so a reloading pop-out keeps its side). `resources/css/holler.css` (minified into `resources/dist/holler.css`): the widget.
 - `resources/views/widget.blade.php`: rendered by the plugin's `BODY_END` render hook inside `@persist('filament-holler.<panel id>')` (one per panel); passes
   routes (`__ID__` placeholder for the call id, `ice` included), CSRF token, `kind`, `iceTransportPolicy`, poll intervals and labels
   to Alpine (no ICE servers: they are fetched per call). Drawn with `<x-filament::button>` (round via `fi-holler-round`, toggles as
@@ -98,7 +103,7 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
 - User ids are strings everywhere (`caller_id`, `callee_id`, `to_user_id`, the JSON), so integer and UUID keys both work.
 - Authorisation lives on the server: `canCall()` in `store`, `participant()` on every per-call endpoint. The
   action only renders a button.
-- Anything Filament-specific goes in `resources/dist/calls.js` (the Alpine wrapper) or `src/`; the engine and
+- Anything Filament-specific goes in `resources/js/holler.js` (the Alpine wrapper) or `src/`; the engine and
   the signaling logic belong to their own repos.
 - Route names (`filament.{panel}.filament-holler.*`), the `CallContext` methods and the JSON shapes come from the
   core; they must not change inside a major.
@@ -107,10 +112,10 @@ pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devt
 
 The three repos go out together as 1.0.0, in this order; the human does these steps (agents never tag, publish or change visibility). Each CHANGELOG keeps `## Unreleased` until then: rename it to `## 1.0.0 — <date>` in the release commit, and the tag's release workflow takes the notes from it. Keep the section short and human, since the workflow appends GitHub's list of merged pull requests under it: an optional lead sentence, then at most about six one-line bullets saying what a user gets, in plain words (class or method names only when a user needs the name, never lists of them). Always keep breaking changes with an `**Upgrading:**` line, security or privacy fixes, new minimum versions and migrations to run; CI, tests and refactors stay out.
 
-1. **`packstub/holler-js`**: make the repo public; set `"version": "1.0.0"` in `package.json`; `npm pack --dry-run` (expect `src/index.js`, `src/widget.js`, `src/widget.css`, README, LICENSE, CHANGELOG); `npm publish` (`publishConfig.access` is public); tag `v1.0.0`.
-2. **`packstub/holler`**: make the repo public; in `package.json` change the dev dependency `github:packstub/holler-js` to `^1.0`, `npm install`, `npm run build:js` and check that `resources/dist` did not change (it must equal holler-js `src/` at the tag); tag `v1.0.0`; submit the repo to Packagist and check that the GitHub hook updates it.
-3. **`packstub/filament-holler`** (this repo): remove the `repositories` path entry to `../holler` from `composer.json`; keep `"packstub/holler": "^1.0"` and run `composer update packstub/holler` so the lock takes it from Packagist (`vendor/packstub/holler` stops being a symlink); in `package.json` change `github:packstub/holler-js` to `^1.0`, `npm install`, `npm run build:js` and check that `resources/dist/holler-core.js` did not change; `composer test` and `composer test:e2e`; make the repo public; tag `v1.0.0`; submit to Packagist.
-4. Until steps 2 and 3 are done, this repo's CI cannot install: the path repo `../holler` does not exist on a runner and `npm ci` cannot fetch the private `github:packstub/holler-js`. Test locally (Pest on Filament 4 and 5, the e2e suite) before tagging.
+1. **`packstub/holler-js`**: make the repo public; set `"version": "1.0.0"` in `package.json`; `npm pack --dry-run` (expect `src/` and `dist/` with `index.js`, `widget.js`, `widget.css` each, the two `.d.ts`, README, LICENSE, CHANGELOG); `npm publish` (`publishConfig.access` is public); tag `v1.0.0`.
+2. **`packstub/holler`**: make the repo public; in `package.json` change the dev dependency `github:packstub/holler-js` to `^1.0`, `npm install`, `npm run build:js` and commit `resources/dist` (the engine's banner carries its version, so the three files change with 1.0.0 and nothing else should); tag `v1.0.0`; submit the repo to Packagist and check that the GitHub hook updates it.
+3. **`packstub/filament-holler`** (this repo): remove the `repositories` path entry to `../holler` from `composer.json`; keep `"packstub/holler": "^1.0"` and run `composer update packstub/holler` so the lock takes it from Packagist (`vendor/packstub/holler` stops being a symlink); in `package.json` change `github:packstub/holler-js` to `^1.0`, `npm install`, `npm run build:js`, commit `resources/dist/holler-core.js` (its banner carries the new version) and check with `npm run build:js:check`; in `tests.yml` drop the checkout of `packstub/holler` and the two deploy keys, so CI tests against the released packages; `composer test` and `composer test:e2e`; make the repo public; tag `v1.0.0`; submit to Packagist.
+4. Until steps 2 and 3 are done, this repo's CI checks out `packstub/holler@main` beside it and clones holler-js with deploy keys (`HOLLER_DEPLOY_KEY`, `HOLLER_JS_DEPLOY_KEY`), so it tests against the two `main` branches: merge holler-js and holler first, then `npm update @packstub/holler && npm run build:js` here. Run the e2e suite in Firefox too, and once with `HOLLER_SPA=1 HOLLER_POP_OUT=false` (SPA mode has no browser test in CI), before tagging.
 5. Afterwards: update the three rows in the workspace `CLAUDE.md` (private, untagged, path repo), set `"stats": true` in `workspace/projects.json` and run `workspace/register-stats.sh`, the store listing and docs (skill `filament-plugin-listing`), and the filamentphp.com listing for this plugin (named **Holler** there).
 
 ## Not in the MVP (ideas)

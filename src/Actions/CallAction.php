@@ -11,7 +11,8 @@ use Illuminate\Support\Js;
 use Packstub\FilamentHoller\FilamentHollerPlugin;
 
 /**
- * A button that rings a user. Client-side only: it hands the user id to the
+ * A button that rings a user. Client-side only: it hands the user id (and the
+ * name, for the question the widget asks when pressed during a call) to the
  * call widget, which asks the server to start the call (and the server is the
  * one that decides whether the call is allowed).
  */
@@ -32,7 +33,7 @@ class CallAction extends Action
         $this->icon(Heroicon::OutlinedPhone);
         $this->color('primary');
 
-        $this->alpineClickHandler(fn (CallAction $action): string => '$dispatch(\'filament-holler-call\', { user: '.Js::from((string) $action->getUser()?->getAuthIdentifier()).' })');
+        $this->alpineClickHandler(fn (CallAction $action): string => '$dispatch(\'filament-holler-call\', { user: '.Js::from((string) $action->getUser()?->getAuthIdentifier()).', name: '.Js::from($action->getUser() ? Filament::getUserName($action->getUser()) : null).' })');
     }
 
     /**

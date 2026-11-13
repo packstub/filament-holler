@@ -40,7 +40,8 @@ const state = (page) => page.evaluate((selector) => {
     const widget = document.querySelector(selector)
 
     return (widget && window.Alpine?.$data(widget)?.state) ?? null
-}, WIDGET)
+    // A pop-out that is moving on to another call (hold and call, resume) has no page for a moment.
+}, WIDGET).catch(() => null)
 
 /** Kinds and states of the tracks on the remote <video>, e.g. ['audio:live', 'video:live']. */
 const remoteTracks = (page) => page.evaluate((selector) => {
@@ -76,6 +77,14 @@ async function answer(ana) {
     return window
 }
 
+/** Hang up whatever this person is on or has on hold, and wait for the server to know. */
+const leaveCalls = (page) => page.evaluate(async (selector) => {
+    const widget = document.querySelector(selector)
+    if (! widget) return
+    await Alpine.$data(widget).endHeld()
+    await Alpine.$data(widget).hangUp()
+}, WIDGET).catch(() => {})
+
 let ion
 let ana
 
@@ -85,13 +94,10 @@ test.beforeEach(async ({ browser }) => {
 })
 
 test.afterEach(async () => {
-    // Whatever happened, nobody stays on a call for the next test.
+    // Whatever happened, nobody stays on a call (or has one on hold) for the next test.
     for (const page of [ion, ana]) {
         if (page.isClosed()) continue
-        await page.evaluate((selector) => {
-            const widget = document.querySelector(selector)
-            if (widget) Alpine.$data(widget).hangUp()
-        }, WIDGET).catch(() => {})
+        await leaveCalls(page)
     }
     await ion.context().close()
     await ana.context().close()
@@ -226,8 +232,11 @@ test('three people on one call: the third is added from the Team page, everyone 
         await expectActive(ionWindow)
         await expectActive(anaWindow)
 
-        // Ion adds Mihai from the Team page while his pop-out runs the call.
+        // Ion adds Mihai from the Team page while his pop-out runs the call: the widget asks what to do with the call.
         await ion.getByRole('row', { name: /Mihai Rusu/ }).getByRole('button', { name: 'Call' }).click()
+        await expect(ion.locator('[data-holler-prompt]')).toContainText('Mihai Rusu')
+        await ion.locator('[data-holler-prompt]').getByRole('button', { name: 'Add to this call' }).click()
+        await expect(ion.locator('[data-holler-prompt]')).toBeHidden()
         await expect(ion.getByRole('status').filter({ hasText: 'Ringing Mihai Rusu' })).toBeVisible()
         await expect(mihai.getByRole('alertdialog')).toContainText('Ion Caliman', { timeout: 30_000 })
         await expect(mihai.getByRole('alertdialog')).toContainText('+1')
@@ -289,7 +298,74 @@ test('three people on one call: the third is added from the Team page, everyone 
         await expect.poll(() => state(anaWindow)).toBe('active')
         await expect.poll(() => state(mihai)).toBe('idle')
     } finally {
-        await mihai.evaluate((selector) => { const widget = document.querySelector(selector); if (widget) Alpine.$data(widget).hangUp() }, WIDGET).catch(() => {})
+        await leaveCalls(mihai)
+        await mihai.context().close()
+    }
+})
+
+test('a call on hold: ring someone else, swap back with Resume, end the other call, and add someone from the call window', async ({ browser }) => {
+    const mihai = await signIn(await browser.newContext(), 'mihai@example.com')
+
+    try {
+        const ionWindow = await ring(ion)
+        const anaWindow = await answer(ana)
+        await expectActive(ionWindow)
+        await expectActive(anaWindow)
+
+        // Call on Mihai during the call: the question, then hold and call. Ion's window moves on to the new call.
+        await ion.getByRole('row', { name: /Mihai Rusu/ }).getByRole('button', { name: 'Call' }).click()
+        await ion.locator('[data-holler-prompt]').getByRole('button', { name: 'Hold this call and start a new one' }).click()
+        await expect(ion.locator('[data-holler-held]')).toContainText('Ana Popescu')
+        await expect(ion.locator('[data-holler-held]')).toContainText('On hold')
+        await expect.poll(() => state(ionWindow), { timeout: 30_000 }).toBe('calling')
+
+        // Ana waits: her call is still there, and says why.
+        await expect.poll(() => state(anaWindow)).toBe('waiting')
+        await expect(anaWindow.locator('.fi-holler-header .fi-holler-muted')).toHaveText('On hold')
+        await expect(anaWindow.getByRole('status').filter({ hasText: 'Ion Caliman put the call on hold' })).toBeVisible()
+
+        await expect(mihai.getByRole('alertdialog')).toContainText('Ion Caliman', { timeout: 30_000 })
+        const [mihaiWindow] = await Promise.all([
+            mihai.context().waitForEvent('page'),
+            mihai.getByRole('alertdialog').getByRole('button', { name: 'Accept', exact: true }).click(),
+        ])
+        await expectActive(ionWindow)
+        await expectActive(mihaiWindow)
+        await expect(ionWindow.locator('.fi-holler-header .fi-holler-name')).toHaveText('Mihai Rusu')
+        // One call on hold at a time: nothing to hold in this one.
+        await expect(ionWindow.locator('[data-holler-hold]')).toBeHidden()
+
+        // Resume swaps the two: Ion is back with Ana, and Mihai waits.
+        await ion.locator('[data-holler-resume]').click()
+        await expectActive(ionWindow)
+        await expectActive(anaWindow)
+        await expect(ionWindow.locator('.fi-holler-header .fi-holler-name')).toHaveText('Ana Popescu')
+        await expect.poll(() => state(mihaiWindow)).toBe('waiting')
+        await expect(ion.locator('[data-holler-held]')).toContainText('Mihai Rusu')
+
+        // The call on hold ended from its bar: Mihai is free again, Ion and Ana go on.
+        await ion.locator('[data-holler-end-held]').click()
+        await expect(ion.locator('[data-holler-held]')).toBeHidden()
+        await expect.poll(() => state(mihai), { timeout: 30_000 }).toBe('idle')
+        await expect.poll(() => state(ionWindow)).toBe('active')
+
+        // Add someone from the call window itself: search, pick, and Mihai rings.
+        await ionWindow.locator('[data-holler-add-person]').click()
+        await expect(ionWindow.locator('[data-holler-add]')).toHaveText(['Mihai Rusu'].map((name) => new RegExp(name)))
+        await ionWindow.locator('[data-holler-people-search]').fill('zzz')
+        await expect(ionWindow.locator('[data-holler-no-people]')).toBeVisible()
+        await ionWindow.locator('[data-holler-people-search]').fill('mih')
+        await ionWindow.locator('[data-holler-add]', { hasText: 'Mihai Rusu' }).click()
+        await expect(ionWindow.locator('#fi-holler-people')).toBeHidden()
+        await expect(mihai.getByRole('alertdialog')).toContainText('Ion Caliman', { timeout: 30_000 })
+        await expect(ionWindow.locator('.fi-holler-tile-name', { hasText: 'Mihai Rusu' })).toContainText('Calling')
+
+        // Hold from the call window too: it steps Ion out, and the bar shows on his page.
+        await ionWindow.locator('[data-holler-hold]').click()
+        await expect.poll(() => state(ionWindow)).toBe('idle')
+        await expect(ion.locator('[data-holler-held]')).toContainText('Ana Popescu')
+    } finally {
+        await leaveCalls(mihai)
         await mihai.context().close()
     }
 })

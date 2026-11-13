@@ -7,7 +7,8 @@ All notable changes to `packstub/filament-holler` are documented in this file.
 First release of Filament Holler: audio, video and screen-share calls between the users of a Filament panel, 1-on-1 or in groups of up to four, peer to peer over WebRTC. Works with Filament 4.13.3+ or 5.8.3+ and Laravel 12.69+ or 13.30+, built on `packstub/holler` and `@packstub/holler`.
 
 - Register `FilamentHollerPlugin` and a call widget appears on every page for signed-in users
-- A `CallAction` button to ring someone, or add them to the call you are on
+- A `CallAction` button to ring someone; during a call it asks whether to add them, put the call on hold or end it
+- Add someone from a search box in the call window, and put a call on hold to ring someone else, then swap back with Resume
 - `canCall()` decides who may call whom, on the server; with tenancy, by default only people who share a tenant, and the panel's email verification and two-factor rules apply
 - Drawn with Filament's own components, in the panel's theme, light or dark, usable with the keyboard and a screen reader, in English, German, Romanian and Russian
 - Calls open in a pop-out window by default, so you can keep using the panel, and survive a reload

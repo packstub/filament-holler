@@ -23,6 +23,8 @@ class FilamentHollerPlugin implements Plugin
 
     protected ?Closure $canCall = null;
 
+    protected ?Closure $searchUsersUsing = null;
+
     /** @var array<int, array<string, mixed>> | Closure | null */
     protected array|Closure|null $iceServers = null;
 
@@ -65,6 +67,24 @@ class FilamentHollerPlugin implements Plugin
         $this->canCall = $callback;
 
         return $this;
+    }
+
+    /**
+     * Who the call window's "Add someone" finds: fn (Authenticatable $caller, string $query, int $limit): iterable
+     * of users, for a panel whose users are not found by name (or a tenant with many of them:
+     * search the tenant's members). `canCall()` is still asked for each one.
+     */
+    public function searchUsersUsing(?Closure $callback): static
+    {
+        $this->searchUsersUsing = $callback;
+
+        return $this;
+    }
+
+    /** @return iterable<Authenticatable>|null  null: the panel's users by the `search_columns` config key */
+    public function searchUsers(Authenticatable $caller, string $query, int $limit): ?iterable
+    {
+        return $this->searchUsersUsing ? (($this->searchUsersUsing)($caller, $query, $limit) ?? []) : null;
     }
 
     /** @param  array<int, array<string, mixed>> | Closure | null  $servers */
@@ -246,7 +266,7 @@ class FilamentHollerPlugin implements Plugin
     {
         $panel
             ->authenticatedRoutes(function (Panel $panel): void {
-                // The core's nine signaling routes, behind the panel's auth and CSRF, plus the pop-out page;
+                // The core's signaling routes, behind the panel's auth and CSRF, plus the pop-out page;
                 // like the panel's own pages, only for someone who verified their email and set up
                 // multi-factor authentication where the panel requires it.
                 Route::middleware(static::routeMiddleware($panel))->group(function (): void {

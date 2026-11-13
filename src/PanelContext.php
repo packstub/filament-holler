@@ -107,6 +107,17 @@ class PanelContext implements CallContext
         return $this->plugin()?->isCallAllowed($caller, $callee) ?? $this->app->canCall($caller, $callee);
     }
 
+    /** The panel's users by name (the `search_columns` config key), or whatever the plugin's `searchUsersUsing()` finds. */
+    public function searchUsers(Authenticatable $caller, string $query, int $limit): iterable
+    {
+        if (! $this->panel()) {
+            return $this->app->searchUsers($caller, $query, $limit);
+        }
+
+        return $this->plugin()?->searchUsers($caller, $query, $limit)
+            ?? AppContext::searchProvider(Filament::auth()->getProvider(), $query, $limit, (array) config('holler.search_columns', ['name']));
+    }
+
     public function iceServers(): array
     {
         return $this->plugin()?->getIceServers() ?? $this->app->iceServers();

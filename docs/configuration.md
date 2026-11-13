@@ -8,6 +8,16 @@ php artisan vendor:publish --tag=holler-config
 
 ## ICE servers (STUN / TURN)
 
+What a call needs depends on where the two people are:
+
+| The two people are | What the call needs | Set |
+| --- | --- | --- |
+| on the same network (an office, a VPN) | nothing | `HOLLER_STUN_URL=` (empty) if you want no outside server at all |
+| on different networks, behind ordinary routers | a STUN server | nothing: this is the default |
+| behind a strict NAT, a VPN or a corporate firewall | a TURN server | `HOLLER_TURN_URL` and a secret or a login |
+
+So an intranet app runs with no outside service, the default covers most calls between homes and offices, and reaching everyone takes a TURN server, your own or a hosted one.
+
 Two browsers need help to find a path to each other. A **STUN** server tells each one its public address, and for most calls that is enough: the media then goes straight from browser to browser. The package uses Google's public STUN server out of the box, free and without an account, so calls work right after the install:
 
 ```dotenv
@@ -62,9 +72,19 @@ HOLLER_ICE_TRANSPORT_POLICY=relay
 
 A TURN relay forwards packets it cannot decrypt (WebRTC media is encrypted end to end with DTLS-SRTP).
 
+### Why Laravel cannot be the relay
+
+The signaling (who calls whom, the offers and answers) goes through your Laravel routes. The audio and video cannot: a browser sends them over UDP or a long-lived socket, to the other browser or to a TURN server, and offers no way to send them through HTTP requests. A relay is therefore always a TURN server. [coturn](https://github.com/coturn/coturn) is one small daemon on any server with a public address, it answers STUN too, and with `HOLLER_TURN_SECRET` it is all the app needs.
+
 ### When a call does not connect
 
-A call that rings and is answered but never shows the other person ends after `HOLLER_RECONNECT_TIMEOUT` with "Could not connect" on both sides. When no TURN server is configured, the browser console says so too: that is nearly always the reason, since one of the two people is on a network that allows no direct path. Add a TURN server, with a `turns:` address on port 443 for the strictest networks. To check a TURN server on its own, set `HOLLER_ICE_TRANSPORT_POLICY=relay` for a moment: every call then has to go through it, also between two tabs on your own machine.
+A call that rings and is answered but never shows the other person ends after `HOLLER_RECONNECT_TIMEOUT` with "Could not connect" on both sides: the browsers found no path to each other. The usual reasons:
+
+- **No TURN server, and one side is on a strict network.** The browser console says so. Add a TURN server, with a `turns:` address on port 443 for the strictest networks.
+- **A TURN server that refuses.** Wrong, expired or removed credentials look the same as no server at all. Open `chrome://webrtc-internals` (`about:webrtc` in Firefox) during a call and look for `icecandidateerror`: a code in the 400s means the server turned the login down, 701 means it could not be reached.
+- **`HOLLER_ICE_TRANSPORT_POLICY=relay` without a working TURN server.** Every call then has to go through the relay, so none connects, also on one network. Remove the line or fix the server.
+
+To check a TURN server on its own, set `HOLLER_ICE_TRANSPORT_POLICY=relay` for a moment and call between two tabs on your own machine: the call connects only when the relay works.
 
 A call that connected and then ends with "Connection lost" had a path and lost it (a laptop that went to sleep, a network that dropped) for longer than the timeout. During a call a "Weak connection" badge on someone's picture means many packets to or from them are being lost or arrive late.
 
