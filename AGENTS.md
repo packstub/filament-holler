@@ -27,7 +27,10 @@ composer test:e2e           # Playwright: two people call each other through the
 To try a call on one machine, sign in as two people on two hostnames (`localhost:8000` and `127.0.0.1:8000`):
 cookies are per host, so one browser holds both sessions, and both hosts count as secure contexts for
 `getUserMedia`. The workbench panel is non-SPA (`HOLLER_SPA=1` turns SPA mode on) and follows the plugin's
-pop-out default (`HOLLER_POP_OUT=true|false` forces it). Automated Chrome needs
+pop-out default (`HOLLER_POP_OUT=true|false` forces it). To call from other devices and a phone, serve with
+`HOLLER_HTTPS=1 PHP_CLI_SERVER_WORKERS=8 php vendor/bin/testbench serve --no-reload` and put
+`cloudflared tunnel --url http://localhost:8000` in front: `HOLLER_HTTPS` makes the URLs https behind the tunnel
+(`--no-reload` passes every env variable through, `HOLLER_TURN_*` too). Automated Chrome needs
 `--use-fake-ui-for-media-stream --use-fake-device-for-media-stream --use-file-for-fake-audio-capture=<wav>`:
 without the wav, macOS asks Chrome for the microphone and `getUserMedia` hangs. Chrome also blocks `.click()`
 pop-ups from `eval` unless launched with `--disable-popup-blocking` (chrome-devtools-axi does).
