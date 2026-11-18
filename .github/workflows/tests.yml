@@ -9,10 +9,8 @@ concurrency:
   cancel-in-progress: true
 
 # The plugin requires packstub/holler through a path repository (`../holler`, see
-# composer.json) and, for the end-to-end job's npm install, packstub/holler-js. Both
-# repos are private: read-only deploy keys (secrets HOLLER_DEPLOY_KEY and
-# HOLLER_JS_DEPLOY_KEY) check them out. Once packstub/holler is on Packagist, CI can
-# install it from there instead.
+# composer.json), so CI checks the public packstub/holler out beside it. Once
+# packstub/holler is on Packagist, CI can install it from there instead.
 
 jobs:
   tests:
@@ -53,7 +51,6 @@ jobs:
         with:
           repository: packstub/holler
           ref: main
-          ssh-key: ${{ secrets.HOLLER_DEPLOY_KEY }}
           path: holler
 
       - name: Setup PHP ${{ matrix.php }}
@@ -105,7 +102,6 @@ jobs:
         with:
           repository: packstub/holler
           ref: main
-          ssh-key: ${{ secrets.HOLLER_DEPLOY_KEY }}
           path: holler
 
       - name: Setup PHP
@@ -121,15 +117,6 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: filament-holler/package-lock.json
-
-      # npm ci clones @packstub/holler from the private packstub/holler-js over SSH.
-      - name: Load the holler-js deploy key
-        run: |
-          eval "$(ssh-agent -s)"
-          ssh-add - <<< "${{ secrets.HOLLER_JS_DEPLOY_KEY }}"
-          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
-          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
-          mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
       - name: Install dependencies
         run: |
@@ -151,3 +138,21 @@ jobs:
           name: playwright-test-results
           path: filament-holler/test-results
           retention-days: 7
+
+  # The one check the main branch requires (Settings → Rules): green only when every job above is.
+  # A new job goes in `needs`, so the required name stays the same when the matrix changes.
+  tests-passed:
+    name: Tests passed
+    if: always()
+    needs: [tests, e2e]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fail unless every job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = "success" ] || exit 1
+          done

@@ -5,9 +5,9 @@ Free (MIT) Filament v4/v5 plugin: audio/video/screen-share calls between panel u
 tables, models, events, config (`holler`, `HOLLER_*` env), the `Holler` service and facade, the
 `CallContext` contract and `CallsController`. The browser engine is `@packstub/holler` (`plugins/holler-js`),
 bundled here as `resources/dist/holler-core.js`. This package lives in `Packstub\FilamentHoller\`; the core keeps `Packstub\Holler\` (one PSR-4 root per
-package, so names never collide across them). Split 2026-10-23;
-private repo, untagged. Until `packstub/holler` is on Packagist, `composer.json` takes it from the path repo
-`../holler` (pinned as 1.0.0) until the first release; see [Release checklist](#release-checklist).
+package, so names never collide across them). Split 2026-10-23; public repo, untagged (holler and holler-js are
+public and tagged 1.0.0 since 2026-11-18, the engine on npm). Until `packstub/holler` is on Packagist, `composer.json`
+takes it from the path repo `../holler` (pinned as 1.0.0); see [Release checklist](#release-checklist).
 
 ## Commands
 
@@ -117,7 +117,7 @@ The three repos go out together as 1.0.0, in this order; the human does these st
 1. **`packstub/holler-js`**: make the repo public; set `"version": "1.0.0"` in `package.json`; `npm pack --dry-run` (expect `src/` and `dist/` with `index.js`, `widget.js`, `widget.css` each, the two `.d.ts`, README, LICENSE, CHANGELOG); `npm publish` (`publishConfig.access` is public); tag `v1.0.0`.
 2. **`packstub/holler`**: make the repo public; in `package.json` change the dev dependency `github:packstub/holler-js` to `^1.0`, `npm install`, `npm run build:js` and commit `resources/dist` (the engine's banner carries its version, so the three files change with 1.0.0 and nothing else should); tag `v1.0.0`; submit the repo to Packagist and check that the GitHub hook updates it.
 3. **`packstub/filament-holler`** (this repo): remove the `repositories` path entry to `../holler` from `composer.json`; keep `"packstub/holler": "^1.0"` and run `composer update packstub/holler` so the lock takes it from Packagist (`vendor/packstub/holler` stops being a symlink); in `package.json` change `github:packstub/holler-js` to `^1.0`, `npm install`, `npm run build:js`, commit `resources/dist/holler-core.js` (its banner carries the new version) and check with `npm run build:js:check`; in `tests.yml` drop the checkout of `packstub/holler` and the two deploy keys, so CI tests against the released packages; `composer test` and `composer test:e2e`; make the repo public; tag `v1.0.0`; submit to Packagist.
-4. Until steps 2 and 3 are done, this repo's CI checks out `packstub/holler@main` beside it and clones holler-js with deploy keys (`HOLLER_DEPLOY_KEY`, `HOLLER_JS_DEPLOY_KEY`), so it tests against the two `main` branches: merge holler-js and holler first, then `npm update @packstub/holler && npm run build:js` here. Run the e2e suite in Firefox too before tagging (CI runs Chromium only: the pop-out panel and, as `chromium-spa`, the SPA panel without it).
+4. Until step 3 is done, this repo's CI checks out the public `packstub/holler@main` beside it (no deploy keys) and so tests against holler's `main`; the engine already comes from npm (`@packstub/holler` `^1.0`, done 2026-11-18): after a holler-js release, `npm update @packstub/holler && npm run build:js` here. Run the e2e suite in Firefox too before tagging (CI runs Chromium only: the pop-out panel and, as `chromium-spa`, the SPA panel without it).
 5. Afterwards: update the three rows in the workspace `CLAUDE.md` (private, untagged, path repo), set `"stats": true` in `workspace/projects.json` and run `workspace/register-stats.sh`, the store listing and docs (skill `filament-plugin-listing`), and the filamentphp.com listing for this plugin (named **Holler** there).
 
 ## Not in the MVP (ideas)
