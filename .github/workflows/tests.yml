@@ -8,10 +8,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# The plugin requires packstub/holler through a path repository (`../holler`, see
-# composer.json), so CI checks the public packstub/holler out beside it. Once
-# packstub/holler is on Packagist, CI can install it from there instead.
-
 jobs:
   tests:
     name: Tests (PHP ${{ matrix.php }}, Laravel ${{ matrix.laravel }}, Filament ${{ matrix.filament }}, ${{ matrix.dependencies }})
@@ -36,22 +32,9 @@ jobs:
           - { php: "8.3", laravel: "12.*", testbench: "10.*", filament: "5.8.3", dependencies: "prefer-lowest" }
           - { php: "8.3", laravel: "13.*", testbench: "11.*", filament: "5.8.3", dependencies: "prefer-lowest" }
 
-    defaults:
-      run:
-        working-directory: filament-holler
-
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: filament-holler
-
-      - name: Checkout packstub/holler
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: packstub/holler
-          ref: main
-          path: holler
 
       - name: Setup PHP ${{ matrix.php }}
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
@@ -68,7 +51,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-php${{ matrix.php }}-laravel${{ matrix.laravel }}-filament${{ matrix.filament }}-${{ matrix.dependencies }}-${{ hashFiles('filament-holler/composer.json') }}
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-laravel${{ matrix.laravel }}-filament${{ matrix.filament }}-${{ matrix.dependencies }}-${{ hashFiles('composer.json') }}
           restore-keys: |
             composer-${{ runner.os }}-php${{ matrix.php }}-
 
@@ -87,22 +70,9 @@ jobs:
     name: End-to-end (two browsers call each other)
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: filament-holler
-
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: filament-holler
-
-      - name: Checkout packstub/holler
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: packstub/holler
-          ref: main
-          path: holler
 
       - name: Setup PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
@@ -116,7 +86,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: filament-holler/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: |
@@ -136,7 +106,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-test-results
-          path: filament-holler/test-results
+          path: test-results
           retention-days: 7
 
   # The one check the main branch requires (Settings → Rules): green only when every job above is.
