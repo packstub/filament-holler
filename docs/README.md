@@ -7,7 +7,7 @@ Audio, video and screen-share calls between the users of a Filament panel, one o
 - Support: [GitHub issues](https://github.com/packstub/filament-holler/issues)
 - Built on: [Holler for Laravel](https://packstub.dev/docs/holler) (the signaling backend, installed with this package) and [`@packstub/holler`](https://github.com/packstub/holler-js) (the browser engine, bundled)
 
-![Ion calls Ana from her row on the Team page, she answers, and the call window shows her video with his in the corner](https://raw.githubusercontent.com/packstub/art/main/filament-holler/docs/calls.gif)
+![Marco calls Ana from her row on the Team page, she answers, and the call window shows her video with his in the corner](https://raw.githubusercontent.com/packstub/art/main/filament-holler/docs/calls.gif)
 
 ## Features
 
