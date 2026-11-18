@@ -49,11 +49,11 @@ export const expectActive = async (page) => {
     await expect.poll(() => remoteTracks(page)).toEqual(['audio:live', 'video:live'])
 }
 
-/** Ion rings Ana from her row on the Team page; the pop-out that opens is returned. */
-export async function ring(ion) {
+/** Marco rings Ana from her row on the Team page; the pop-out that opens is returned. */
+export async function ring(marco) {
     const [window] = await Promise.all([
-        ion.context().waitForEvent('page'),
-        ion.getByRole('row', { name: /Ana Popescu/ }).getByRole('button', { name: 'Call' }).click(),
+        marco.context().waitForEvent('page'),
+        marco.getByRole('row', { name: /Ana Popescu/ }).getByRole('button', { name: 'Call' }).click(),
     ])
     await expect(window).toHaveURL(/filament-holler\/window/)
 
@@ -62,7 +62,7 @@ export async function ring(ion) {
 
 /** Ana accepts from the toast on her page; her pop-out is returned. */
 export async function answer(ana) {
-    await expect(ana.getByRole('alertdialog')).toContainText('Ion Caliman', { timeout: 30_000 })
+    await expect(ana.getByRole('alertdialog')).toContainText('Marco Bianchi', { timeout: 30_000 })
     const [window] = await Promise.all([
         ana.context().waitForEvent('page'),
         ana.getByRole('alertdialog').getByRole('button', { name: 'Accept', exact: true }).click(),

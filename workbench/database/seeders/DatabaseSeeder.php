@@ -9,7 +9,17 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        foreach (['Ion Caliman' => 'ion', 'Ana Popescu' => 'ana', 'Mihai Rusu' => 'mihai'] as $name => $login) {
+        $team = [
+            'Marco Bianchi' => 'marco',
+            'Ana Popescu' => 'ana',
+            'Mihai Rusu' => 'mihai',
+            'Sara Lindqvist' => 'sara',
+            'Tom Becker' => 'tom',
+            'Noor Haddad' => 'noor',
+            'Elena Rossi' => 'elena',
+        ];
+
+        foreach ($team as $name => $login) {
             User::query()->firstOrCreate(['email' => "{$login}@example.com"], ['name' => $name, 'password' => 'password']);
         }
     }
