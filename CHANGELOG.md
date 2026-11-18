@@ -2,7 +2,7 @@
 
 All notable changes to `packstub/filament-holler` are documented in this file.
 
-## Unreleased
+## 1.0.0 — 2026-11-18
 
 First release of Filament Holler: audio, video and screen-share calls between the users of a Filament panel, 1-on-1 or in groups of up to four, peer to peer over WebRTC. Works with Filament 4.13.3+ or 5.8.3+ and Laravel 12.69+ or 13.30+, built on `packstub/holler` and `@packstub/holler`.
 
